@@ -1,8 +1,22 @@
 /**
- * React context for PartyLayer
+ * React context for PartyLayer.
  *
- * Manages wallet listing (registry + native CIP-0103 discovery),
- * session state, and event subscriptions.
+ * Surface kept minimal: the registry-derived wallet list, the active
+ * session, and event subscriptions. Runtime CIP-0103 detection used to
+ * live here (Prompts 7.2-7.5 evolved through several variants) but
+ * proved fragile because every adapter has different transport
+ * semantics and any divergence between the modal's expectation and the
+ * adapter's answer surfaced as a misleading "Ready" indicator.
+ *
+ * Prompt 7.6 simplification: the modal renders the registry directly.
+ * Each adapter's `connect()` flow handles install / QR / popup
+ * fallbacks at click-time — that's where transport-specific knowledge
+ * actually lives, and the right place for it.
+ *
+ * Detection helpers (`detectInstalled`, `matchesProviderDetection`,
+ * `findMatchingWallet`, etc.) remain exported by `@partylayer/sdk`
+ * and `@partylayer/registry-client` for advanced consumers and the
+ * conformance suite — only the picker stops consuming them.
  */
 
 import { createContext, useContext, useEffect, useState } from 'react';
@@ -11,12 +25,6 @@ import type {
   Session,
   WalletInfo,
 } from '@partylayer/sdk';
-import { discoverInjectedProviders } from '@partylayer/sdk';
-import {
-  createNativeAdapter,
-  createSyntheticWalletInfo,
-  enrichProviderInfo,
-} from './native-cip0103-adapter';
 
 interface PartyLayerContextValue {
   client: PartyLayerClient | null;
@@ -42,14 +50,13 @@ export function usePartyLayerContext(): PartyLayerContextValue {
 interface PartyLayerProviderProps {
   client: PartyLayerClient;
   children: React.ReactNode;
-  /** Network identifier for native CIP-0103 wallet discovery */
+  /** Network identifier (kept for backward compat; no longer used for native synthesis). */
   network?: string;
 }
 
 export function PartyLayerProvider({
   client,
   children,
-  network = 'devnet',
 }: PartyLayerProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [wallets, setWallets] = useState<WalletInfo[]>([]);
@@ -61,91 +68,30 @@ export function PartyLayerProvider({
 
     async function load() {
       try {
-        // Fetch registry wallets and discover native CIP-0103 providers in parallel.
-        // listWallets() is resilient — if registry is unreachable, it falls back
-        // to generating WalletInfo from registered adapters (Console, Loop, etc.)
-        const [sessionData, registryWallets, rawDiscovered] = await Promise.all([
+        // Registry list + active session in parallel. listWallets() is
+        // resilient: if the registry is unreachable, the SDK falls back
+        // to generating WalletInfo entries from the adapters that are
+        // already registered (so the picker still has something to show).
+        const [sessionData, registryWallets] = await Promise.all([
           client.getActiveSession(),
           client.listWallets(),
-          Promise.resolve(discoverInjectedProviders()),
         ]);
 
         if (!mounted) return;
 
-        // Enrich discovered providers with status info (name, etc.)
-        const discovered = await Promise.all(
-          rawDiscovered.map((d) => enrichProviderInfo(d)),
-        );
-
-        if (!mounted) return;
-
-        // Register native adapters with the client and create synthetic WalletInfo
-        const nativeWallets: WalletInfo[] = [];
-        const registryWalletIds = new Set(registryWallets.map((w) => String(w.walletId)));
-
-        for (const dp of discovered) {
-          const adapterId = `cip0103:${dp.id}`;
-          // Skip if there's already a registry wallet that covers this provider
-          if (registryWalletIds.has(adapterId)) continue;
-
-          const adapter = createNativeAdapter(dp);
-          client.registerAdapter(adapter);
-
-          const walletInfo = createSyntheticWalletInfo(dp, network);
-          nativeWallets.push(walletInfo);
-        }
-
-        // Merge: native (detected) wallets first, then registry wallets
-        const mergedWallets = [...nativeWallets, ...registryWallets];
-
         setSession(sessionData);
-        setWallets(mergedWallets);
+        setWallets(registryWallets);
         setIsLoading(false);
       } catch (err) {
         if (mounted) {
           setError(err instanceof Error ? err : new Error('Unknown error'));
-          setWallets([]); // Ensure wallets is empty array on error
+          setWallets([]);
           setIsLoading(false);
         }
       }
     }
 
     load();
-
-    // Delayed re-discovery for late-injecting extensions (e.g. Console Wallet
-    // can take up to 3s to inject into window). Re-scan at 2.5s and merge any
-    // newly found native CIP-0103 providers into the wallet list.
-    const rediscoverTimeout = setTimeout(async () => {
-      if (!mounted) return;
-      try {
-        const newDiscovered = await Promise.resolve(discoverInjectedProviders());
-        const enriched = await Promise.all(
-          newDiscovered.map((d) => enrichProviderInfo(d)),
-        );
-
-        if (!mounted) return;
-
-        setWallets((prev) => {
-          const existingIds = new Set(prev.map((w) => String(w.walletId)));
-          const newNativeWallets: WalletInfo[] = [];
-
-          for (const dp of enriched) {
-            const adapterId = `cip0103:${dp.id}`;
-            if (existingIds.has(adapterId)) continue;
-
-            const adapter = createNativeAdapter(dp);
-            client.registerAdapter(adapter);
-            newNativeWallets.push(createSyntheticWalletInfo(dp, network));
-          }
-
-          if (newNativeWallets.length === 0) return prev;
-          // Prepend newly found native wallets (before registry ones)
-          return [...newNativeWallets, ...prev];
-        });
-      } catch {
-        /* ignore re-discovery failures */
-      }
-    }, 2500);
 
     // Subscribe to events
     const unsubscribeConnect = client.on('session:connected', (event) => {
@@ -174,7 +120,6 @@ export function PartyLayerProvider({
 
     return () => {
       mounted = false;
-      clearTimeout(rediscoverTimeout);
       unsubscribeConnect();
       unsubscribeDisconnect();
       unsubscribeExpired();

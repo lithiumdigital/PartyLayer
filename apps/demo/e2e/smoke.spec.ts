@@ -16,26 +16,26 @@ test.describe('PartyLayer Demo Smoke Tests', () => {
     await page.goto('/');
     
     // Check main heading
-    await expect(page.getByRole('heading', { name: /PartyLayer Demo/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /One SDK for every/i })).toBeVisible();
   });
 
   test('connect modal opens', async ({ page }) => {
     await page.goto('/');
     
     // Click connect button
-    const connectButton = page.getByRole('button', { name: /Connect Wallet/i });
+    const connectButton = page.getByRole('button', { name: /Connect Wallet/i }).first();
     await expect(connectButton).toBeVisible();
     await connectButton.click();
     
     // Check modal is visible
-    await expect(page.getByRole('heading', { name: /Select a Wallet/i })).toBeVisible();
+    await expect(page.getByRole('dialog').getByRole('heading', { name: /Connect Wallet/i })).toBeVisible();
   });
 
   test('registry status indicator is present', async ({ page }) => {
     await page.goto('/');
     
     // Open modal to see registry status
-    await page.getByRole('button', { name: /Connect Wallet/i }).click();
+    await page.getByRole('button', { name: /Connect Wallet/i }).first().click();
     
     // Check for registry status indicators (channel, verified, etc.)
     // These are shown in the modal header
@@ -53,15 +53,15 @@ test.describe('PartyLayer Demo Smoke Tests', () => {
     await page.goto('/');
     
     // Open modal
-    await page.getByRole('button', { name: /Connect Wallet/i }).click();
+    await page.getByRole('button', { name: /Connect Wallet/i }).first().click();
     
     // Wait for modal to appear
-    const modal = page.locator('text=/Select a Wallet/i');
+    const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible({ timeout: 5000 });
     
     // Check for either wallets or "No wallets" or "Loading" message
     // The modal should show some content
-    const modalContent = page.locator('text=/Loading|No wallets|Console|Loop|Select a Wallet/i');
+    const modalContent = page.locator('text=/Loading|No wallets|Console|Loop|Connect Wallet/i');
     await expect(modalContent.first()).toBeVisible({ timeout: 5000 });
   });
 
@@ -69,14 +69,16 @@ test.describe('PartyLayer Demo Smoke Tests', () => {
     await page.goto('/');
     
     // Open modal
-    await page.getByRole('button', { name: /Connect Wallet/i }).click();
+    await page.getByRole('button', { name: /Connect Wallet/i }).first().click();
     
     // Wait for wallets to load
     await page.waitForTimeout(1000);
     
     // Try to click on a wallet (if any are shown)
-    // Since wallets aren't installed in CI, this should show an error
-    const walletButtons = page.locator('button').filter({ hasText: /Console|Loop/i });
+    // Since wallets aren't installed in CI, this should show an error.
+    // Scope to the dialog — the home page also has wallet-name cards behind
+    // the modal overlay, and clicking one would hit the overlay's pointer trap.
+    const walletButtons = page.getByRole('dialog').locator('button').filter({ hasText: /Console|Loop/i });
     const count = await walletButtons.count();
     
     if (count > 0) {
@@ -90,10 +92,10 @@ test.describe('PartyLayer Demo Smoke Tests', () => {
       await page.waitForTimeout(2000);
       
       // Verify page is still functional
-      await expect(page.getByRole('heading', { name: /PartyLayer Demo/i })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /One SDK for every/i })).toBeVisible();
     } else {
       // No wallets available - this is also a valid state
-      await expect(page.getByRole('heading', { name: /PartyLayer Demo/i })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /One SDK for every/i })).toBeVisible();
     }
   });
 

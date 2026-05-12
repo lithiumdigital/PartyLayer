@@ -81,6 +81,21 @@ export type {
 // Re-export registry status type
 export type { RegistryStatus } from '@partylayer/registry-client';
 
+// Standards-first CIP-0103 wallet detection (registry-driven)
+export {
+  matchesProviderDetection,
+  findMatchingWallet,
+  findMatchingWalletInfo,
+  deriveGenericWalletName,
+  isCip0103Native,
+} from '@partylayer/registry-client';
+export type {
+  Cip0103StatusForDetection,
+  Cip0103Support,
+  ProviderDetection,
+  ProviderMatcher,
+} from '@partylayer/registry-client';
+
 // Re-export built-in adapters (for advanced usage)
 // dApps don't need to use these directly - they're auto-registered
 export {
@@ -89,6 +104,7 @@ export {
   Cantor8Adapter,
   NightlyAdapter,
   BronAdapter,
+  SendAdapter,
   getBuiltinAdapters,
 } from './builtin-adapters';
 

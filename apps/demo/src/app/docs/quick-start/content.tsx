@@ -63,7 +63,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
       <Callout type="tip">
         <Code>{'PartyLayerKit'}</Code> automatically registers all built-in wallet adapters
-        (Console, Loop, Cantor8, Nightly), fetches the wallet registry, and sets up session persistence.
+        (Console, Loop, Cantor8, Nightly, Send), fetches the wallet registry, and sets up session persistence.
       </Callout>
 
       <H2 id="step-3">Step 3: Add ConnectButton</H2>
@@ -170,9 +170,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <P>When <Code>{'PartyLayerKit'}</Code> mounts, it:</P>
       <OL>
         <LI><Strong>Creates a PartyLayerClient</Strong> — the core SDK instance that manages all wallet operations</LI>
-        <LI><Strong>Registers built-in adapters</Strong> — Console, Loop, Cantor8, and Nightly wallet adapters</LI>
+        <LI><Strong>Registers built-in adapters</Strong> — Console, Loop, Cantor8, Nightly, and Send wallet adapters</LI>
         <LI><Strong>Fetches the wallet registry</Strong> — verified wallet metadata from <Code>{'registry.partylayer.xyz'}</Code></LI>
-        <LI><Strong>Scans for native CIP-0103 providers</Strong> — auto-discovers wallets injected at <Code>{'window.canton.*'}</Code></LI>
+        <LI><Strong>Groups CIP-0103 native wallets</Strong> — those flagged <Code>{'cip0103.native: true'}</Code> in the registry render in a dedicated picker section</LI>
         <LI><Strong>Restores existing sessions</Strong> — if a user was previously connected, the session is restored automatically</LI>
       </OL>
 

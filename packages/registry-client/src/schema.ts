@@ -13,7 +13,13 @@
  * - Wallet Integration Guide: https://docs.digitalasset.com/integrate/devnet/index.html
  */
 
-import type { WalletInfo, NetworkId, CapabilityKey } from '@partylayer/core';
+import type {
+  CapabilityKey,
+  Cip0103Support,
+  NetworkId,
+  ProviderDetection,
+  WalletInfo,
+} from '@partylayer/core';
 import { toWalletId } from '@partylayer/core';
 
 /**
@@ -79,6 +85,31 @@ export interface RegistryWalletEntry {
   version?: string;
   /** Origin allowlist (optional - if present, only these origins can connect) */
   originAllowlist?: string[];
+  /**
+   * Marks the entry as beta even when it ships in the `stable` registry
+   * channel. UIs (modal, picker, capability matrix) can use this flag to
+   * surface a "Beta" badge regardless of which channel file the entry
+   * lives in. Optional and additive — older registries omit it and the
+   * flag defaults to `false`.
+   */
+  beta?: boolean;
+  /**
+   * Optional CIP-0103 runtime detection rules. When present, the SDK +
+   * picker can match the currently-injected `window.canton` provider to
+   * this entry and surface it in the "CIP-0103 Native" section with full
+   * branding. Lets us add new CIP-0103 wallets to the ecosystem with a
+   * registry JSON update — no SDK code change required.
+   */
+  providerDetection?: ProviderDetection;
+  /**
+   * Canonical CIP-0103 support marker. When `cip0103.native === true`
+   * the picker always renders this entry in the "CIP-0103 NATIVE"
+   * section, regardless of install state. The accompanying `evidence`
+   * field is intended to be a public URL that justifies the claim
+   * (npm package readme, blog post, etc.) and may be surfaced by UIs as
+   * a tooltip / "verified" link.
+   */
+  cip0103?: Cip0103Support;
 }
 
 /**
@@ -263,10 +294,26 @@ export function registryEntryToWalletInfo(
     minSdkVersion: entry.sdkVersion,
     networks: entry.supportedNetworks,
     channel,
-    // Store origin allowlist in metadata for SDK enforcement
-    ...(entry.originAllowlist
-      ? { metadata: { originAllowlist: JSON.stringify(entry.originAllowlist) } }
+    // Adapter metadata is exposed to the picker via WalletInfo.metadata
+    // (typed `Record<string, string>`). Two flags routed through here today:
+    //   - originAllowlist: SDK-side origin enforcement
+    //   - beta:            UI badge ("Beta" tag in modal + capability matrix)
+    // Both are optional — only emitted when the registry entry sets them.
+    ...((entry.originAllowlist || entry.beta)
+      ? {
+          metadata: {
+            ...(entry.originAllowlist
+              ? { originAllowlist: JSON.stringify(entry.originAllowlist) }
+              : {}),
+            ...(entry.beta ? { beta: 'true' } : {}),
+          },
+        }
       : {}),
+    // CIP-0103 runtime-detection rules pass through verbatim when present;
+    // see WalletInfo.providerDetection for how the picker uses them.
+    ...(entry.providerDetection ? { providerDetection: entry.providerDetection } : {}),
+    // Canonical CIP-0103 support marker.
+    ...(entry.cip0103 ? { cip0103: entry.cip0103 } : {}),
   };
 }
 

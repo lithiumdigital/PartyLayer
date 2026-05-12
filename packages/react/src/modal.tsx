@@ -17,6 +17,7 @@ import { useWallets, useConnect, useRegistryStatus } from './hooks';
 import { useTheme } from './theme';
 import { useWalletIcons, resolveWalletIcon } from './kit';
 import type { WalletInfo } from '@partylayer/sdk';
+import { isCip0103Native } from '@partylayer/sdk';
 import type { WalletIconMap } from './kit';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -49,8 +50,35 @@ const SDK_QR_CONTAINER_ID = 'console-wallet-connect-placeholder';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/**
+ * Predicate for the canonical "CIP-0103 NATIVE" section.
+ *
+ * Pure registry decision (Prompt 7.6 simplification): a wallet is
+ * native iff its registry entry has `cip0103.native === true`. No more
+ * runtime detection, no more synthetic generic entries, no more
+ * `metadata.source === 'native-cip0103'` runtime promotion. The picker
+ * is now a static directory; transport-specific install probing happens
+ * at connect time inside each adapter.
+ */
 function isNativeWallet(wallet: WalletInfo): boolean {
-  return wallet.metadata?.source === 'native-cip0103';
+  return isCip0103Native(wallet);
+}
+
+/**
+ * True when an error originates from Send's auth backend timing out.
+ * Uses the typed `SendAuthTimeoutError` class identity AND a structural
+ * fallback (details.cause) so the modal can offer a graceful retry
+ * affordance even if the error tunnels through a wrapper that loses
+ * `instanceof`.
+ */
+function isSendAuthTimeoutError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  if ((err as { name?: unknown }).name === 'SendAuthTimeoutError') return true;
+  const details = (err as { details?: unknown }).details;
+  if (details && typeof details === 'object') {
+    return (details as { cause?: unknown }).cause === 'send-auth-timeout';
+  }
+  return false;
 }
 
 /** Check if a wallet supports both browser extension and mobile transports */
@@ -95,6 +123,7 @@ const KNOWN_WALLET_URLS: Record<string, string> = {
   cantor8: 'https://cantor8.io',
   bron: 'https://bron.dev',
   nightly: 'https://nightly.app',
+  send: 'https://cantonwallet.com',
 };
 
 function getWalletUrl(wallet: WalletInfo): string | null {
@@ -108,11 +137,13 @@ function getWalletUrl(wallet: WalletInfo): string | null {
 }
 
 function getWalletTransportLabel(wallet: WalletInfo): string {
-  if (isNativeWallet(wallet)) return 'Ready';
+  // Prompt 7.6: no longer short-circuits to "Ready" for native wallets.
+  // Every wallet now reports its static transport family — derived purely
+  // from the registry's capabilities array — so the picker reads as a
+  // directory, not a status board.
   const hasInjected = wallet.capabilities.includes('injected');
   const hasDeeplink = wallet.capabilities.includes('deeplink');
   const hasRemoteSigner = wallet.capabilities.includes('remoteSigner');
-  // Wallets with both injected and deeplink/remote support (e.g. Console combined mode)
   if (hasInjected && (hasDeeplink || hasRemoteSigner)) return 'Extension + Mobile';
   if (hasInjected) return 'Browser Extension';
   if (wallet.capabilities.includes('popup')) return 'Scan to connect';
@@ -750,40 +781,60 @@ export function WalletModal({
               {wallet.name}
             </span>
             {isNative && (
+              <span
+                title={
+                  wallet.cip0103?.evidence
+                    ? `CIP-0103 native — evidence: ${wallet.cip0103.evidence}`
+                    : 'CIP-0103 native'
+                }
+                style={{
+                  fontSize: '10px',
+                  padding: '2px 6px',
+                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  color: '#FFFFFF',
+                  borderRadius: '5px',
+                  fontWeight: 600,
+                  letterSpacing: '0.3px',
+                  lineHeight: '14px',
+                  cursor: wallet.cip0103?.evidence ? 'help' : 'default',
+                }}
+              >
+                CIP-0103
+              </span>
+            )}
+            {wallet.metadata?.beta === 'true' && (
               <span style={{
                 fontSize: '10px',
                 padding: '2px 6px',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                color: '#FFFFFF',
+                background: isDark ? 'rgba(245,158,11,0.18)' : 'rgba(245,158,11,0.12)',
+                color: isDark ? '#fbbf24' : '#b45309',
+                border: `1px solid ${isDark ? 'rgba(245,158,11,0.35)' : 'rgba(245,158,11,0.25)'}`,
                 borderRadius: '5px',
                 fontWeight: 600,
                 letterSpacing: '0.3px',
                 lineHeight: '14px',
               }}>
-                CIP-0103
+                Beta
               </span>
             )}
           </div>
+          {/*
+            Prompt 7.6: status indicators removed entirely. The picker is
+            now a registry-driven static directory — install / connect
+            state is decided by the adapter at click-time, not pre-shown
+            in the row. The transport-label line stays (it's static
+            registry-derived metadata: "Browser Extension" / "Mobile
+            wallet" / "Enterprise" etc.) so users still get a hint of
+            HOW the wallet connects.
+          */}
           <div style={{
             fontSize: '12px',
-            color: isNative ? theme.colors.success : theme.colors.textSecondary,
+            color: theme.colors.textSecondary,
             marginTop: '2px',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
           }}>
-            {isNative && (
-              <span style={{
-                width: '5px',
-                height: '5px',
-                borderRadius: '50%',
-                backgroundColor: theme.colors.success,
-                flexShrink: 0,
-              }} />
-            )}
             {getWalletTransportLabel(wallet)}
           </div>
         </div>
@@ -866,6 +917,10 @@ export function WalletModal({
         overflowY: 'auto',
       }}>
         {isLoading ? (
+          // Prompt 7.6: spinner now only covers the registry HTTP fetch
+          // (which can briefly delay the very first modal open). All
+          // runtime detection that previously contributed to this loading
+          // window has been removed.
           <div style={{ padding: '40px 0', textAlign: 'center' }}>
             <div style={{
               width: '32px',
@@ -877,7 +932,7 @@ export function WalletModal({
               margin: '0 auto 16px',
             }} />
             <div style={{ fontSize: '14px', color: theme.colors.textSecondary }}>
-              Discovering wallets...
+              Loading wallets...
             </div>
           </div>
         ) : wallets.length === 0 ? (
@@ -1399,6 +1454,21 @@ export function WalletModal({
   const renderErrorView = () => {
     if (!selectedWallet) return null;
     const iconUrl = resolveWalletIcon(selectedWallet.walletId, walletIcons, selectedWallet.icons?.sm);
+    const surfacedError = connectError || error;
+    const isAuthTimeout = isSendAuthTimeoutError(surfacedError);
+    const helpUrl = (() => {
+      if (!isAuthTimeout || !surfacedError) return 'https://cantonwallet.com';
+      const details = (surfacedError as unknown as { details?: { helpUrl?: unknown } }).details;
+      if (details && typeof details === 'object' && typeof details.helpUrl === 'string') {
+        return details.helpUrl;
+      }
+      return 'https://cantonwallet.com';
+    })();
+
+    // Amber-toned palette for the auth-timeout case — reads as "external
+    // hiccup, please retry" rather than the red "fatal failure" tone we
+    // use for unrecognised connection errors.
+    const badgeColor = isAuthTimeout ? '#F59E0B' : theme.colors.error;
 
     return (
       <>
@@ -1422,7 +1492,7 @@ export function WalletModal({
               width: '24px',
               height: '24px',
               borderRadius: '50%',
-              backgroundColor: theme.colors.error,
+              backgroundColor: badgeColor,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1438,22 +1508,49 @@ export function WalletModal({
             color: theme.colors.text,
             marginBottom: '8px',
           }}>
-            Connection Failed
+            {isAuthTimeout ? 'Authentication timed out' : 'Connection Failed'}
           </div>
 
-          {(connectError || error) && (
+          {surfacedError && (
             <div style={{
               fontSize: '13px',
               color: theme.colors.textSecondary,
               lineHeight: 1.5,
-              maxWidth: '280px',
-              margin: '0 auto 24px',
+              maxWidth: '320px',
+              margin: '0 auto 16px',
             }}>
-              {getErrorMessage(connectError || error!)}
+              {isAuthTimeout
+                ? "This is a known intermittent issue with Send's authentication backend, not your dApp. Try again in a moment."
+                : getErrorMessage(surfacedError)}
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+          {isAuthTimeout && (
+            <div
+              role="status"
+              style={{
+                margin: '0 auto 20px',
+                maxWidth: '320px',
+                padding: '10px 14px',
+                borderRadius: '10px',
+                background: isDark ? 'rgba(245,158,11,0.10)' : 'rgba(245,158,11,0.08)',
+                border: `1px solid ${isDark ? 'rgba(245,158,11,0.30)' : 'rgba(245,158,11,0.25)'}`,
+                color: isDark ? '#fbbf24' : '#92400E',
+                fontSize: '12px',
+                lineHeight: 1.5,
+                textAlign: 'left',
+              }}
+            >
+              Send is intermittently unable to reach{' '}
+              <code style={{ fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '11px' }}>
+                auth.cantonwallet.com
+              </code>
+              . Click <strong>Try Again</strong> to retry, or check the Send status page for
+              up-to-date service info.
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <button
               onClick={handleRetry}
               style={primaryBtnStyle}
@@ -1468,6 +1565,18 @@ export function WalletModal({
             >
               Try Again
             </button>
+            {isAuthTimeout && (
+              <a
+                href={helpUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ ...ghostBtnStyle, textDecoration: 'none', display: 'inline-block' }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = theme.colors.surface; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+              >
+                Visit Send Status
+              </a>
+            )}
             <button
               onClick={handleBackToList}
               style={ghostBtnStyle}

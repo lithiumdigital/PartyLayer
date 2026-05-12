@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback, type ReactNode } from 'react';
 import Link from 'next/link';
 import { PartyLayerKit, WalletModal, useSession, useDisconnect, truncatePartyId } from '@partylayer/react';
+import { buildDemoAdapters } from '../lib/canton-demo-adapter';
 import { useBreakpoint, responsive } from './hooks/useBreakpoint';
 
 /* ─── Design Tokens (mirrored from apps/marketing/src/design/tokens.ts) ── */
@@ -43,6 +44,7 @@ const NPM_URL = 'https://www.npmjs.com/package/@partylayer/sdk';
 
 const wallets = [
   { id: 'console', name: 'Console Wallet', desc: 'Official Console Wallet for Canton Network', transport: 'Extension + Mobile', logo: '/wallets/console.png' },
+  { id: 'send', name: 'Send', desc: 'Passkey-based Canton wallet (mainnet)', transport: 'Injected (window.canton)', logo: '/wallets/send.svg' },
   { id: 'loop', name: '5N Loop', desc: '5N Loop Wallet for Canton Network', transport: 'QR Code / Popup', logo: '/wallets/loop.svg' },
   { id: 'cantor8', name: 'Cantor8 (C8)', desc: 'Cantor8 Wallet for Canton Network', transport: 'Deep Link', logo: '/wallets/cantor8.png' },
   { id: 'nightly', name: 'Nightly', desc: 'Multichain wallet with native Canton support', transport: 'Injected', logo: '/wallets/nightly.svg' },
@@ -397,6 +399,7 @@ const WALLET_LOGOS: Record<string, string> = {
   cantor8: '/wallets/cantor8.png',
   bron: '/wallets/bron.png',
   nightly: '/wallets/nightly.svg',
+  send: '/wallets/send.svg',
 };
 
 /* ─── Nav (from apps/marketing/src/components/Nav.tsx) ─────────────────── */
@@ -1131,7 +1134,7 @@ const proofItems = [
       </svg>
     ),
     title: 'Multi-Wallet',
-    description: 'Console, Loop, Cantor8, Nightly, Bron — one integration for all.',
+    description: 'Console, Send, Loop, Cantor8, Nightly, Bron — one integration for all.',
   },
   {
     icon: (
@@ -1809,7 +1812,7 @@ export default function Home() {
   if (!mounted) return <LoadingSkeleton />;
 
   return (
-    <PartyLayerKit network="devnet" appName="PartyLayer" walletIcons={WALLET_LOGOS}>
+    <PartyLayerKit network="devnet" appName="PartyLayer" walletIcons={WALLET_LOGOS} adapters={buildDemoAdapters()} registryUrl="/registry">
       <LandingContent />
     </PartyLayerKit>
   );
