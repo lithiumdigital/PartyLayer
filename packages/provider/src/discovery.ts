@@ -7,6 +7,7 @@
  */
 
 import type { CIP0103Provider } from '@partylayer/core';
+import { createExtensionChannelProvider } from './extension-channel';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,8 @@ export interface DiscoveredProvider {
   isAsync?: boolean;
   /** Display name (if discoverable from status) */
   name?: string;
+  /** Icon (data: URI or URL) — populated for announce-discovered wallets. */
+  icon?: string;
 }
 
 // ─── Well-known injection paths ─────────────────────────────────────────────
@@ -155,4 +158,216 @@ function findById(id: string): DiscoveredProvider | undefined {
   return discoverInjectedProviders().find(
     (p) => p.id === id || p.id.endsWith(`.${id}`),
   );
+}
+
+// ─── Announce-based discovery (canton:announceProvider) ──────────────────────
+//
+// Some Canton wallets (notably Send) do NOT reliably expose `window.canton`:
+// when another wallet (e.g. Console) owns the single `window.canton` slot, the
+// announce wallet is missed by the scan above. Instead they advertise via the
+// EIP-6963-style discovery handshake — the same protocol the official
+// `@canton-network/dapp-sdk` consumes:
+//   1. the dApp dispatches `canton:requestProvider` on `window`;
+//   2. each wallet replies with a `canton:announceProvider` CustomEvent whose
+//      `detail` carries `{ id/providerId, name, icon, target }`;
+//   3. a working provider is built over the extension `target` channel.
+//
+// Step 3 (the postMessage handshake) is implemented natively in
+// extension-channel.ts (mirroring the splice-wallet protocol from
+// `@canton-network/core-types`). We do NOT depend on
+// `@canton-network/dapp-sdk`'s `ExtensionAdapter`: its single bundled entry
+// statically imports `@walletconnect/sign-client` (an uninstalled optional
+// peer), which breaks every downstream webpack/Next build that pulls
+// `@partylayer/provider` into its graph. The factory is injectable so apps can
+// substitute the official adapter (or tests a mock).
+
+/** Wire event names for the Canton EIP-6963-style provider handshake. */
+const CANTON_REQUEST_PROVIDER_EVENT = 'canton:requestProvider';
+const CANTON_ANNOUNCE_PROVIDER_EVENT = 'canton:announceProvider';
+
+/** Metadata carried by a `canton:announceProvider` event. */
+export interface AnnouncedWallet {
+  /** Stable provider id (extension id), e.g. "ldmoh…" for Send. */
+  id: string;
+  /** Display name. */
+  name?: string;
+  /** Icon (data: URI or URL). */
+  icon?: string;
+  /** Routing key for the extension postMessage channel. */
+  target?: string;
+}
+
+export interface AnnounceDiscoveryOptions {
+  /** How long to collect announce replies after the request (ms). Default 300. */
+  timeoutMs?: number;
+  /**
+   * Build a CIP-0103 provider from an announced wallet. Defaults to the
+   * self-contained `createExtensionChannelProvider` (splice postMessage over
+   * the `target` channel). Injectable so apps can substitute the official
+   * `@canton-network/dapp-sdk` `ExtensionAdapter`, and tests a mock.
+   */
+  createProvider?: (
+    announced: AnnouncedWallet,
+  ) => CIP0103Provider | Promise<CIP0103Provider>;
+}
+
+/**
+ * Default announce→provider factory: a self-contained CIP-0103 provider over
+ * the splice-wallet postMessage `target` channel (no external dependency).
+ */
+function defaultAnnounceProvider(announced: AnnouncedWallet): CIP0103Provider {
+  return createExtensionChannelProvider({ target: announced.target });
+}
+
+/**
+ * Discover wallets that advertise via `canton:announceProvider` (EIP-6963-style).
+ *
+ * Works regardless of who owns `window.canton` — this is how Send (and
+ * Console-via-announce) are found. Each result is a working CIP-0103 provider.
+ * Announce replies are deduped by id within a single call.
+ */
+export async function discoverAnnouncedProviders(
+  options: AnnounceDiscoveryOptions = {},
+): Promise<DiscoveredProvider[]> {
+  if (typeof window === 'undefined') return [];
+
+  const timeoutMs = options.timeoutMs ?? 300;
+  const make = options.createProvider ?? defaultAnnounceProvider;
+
+  const announced = new Map<string, AnnouncedWallet>();
+  const onAnnounce = (event: Event): void => {
+    const detail = (event as CustomEvent).detail as
+      | Record<string, unknown>
+      | undefined;
+    if (!detail) return;
+    const rawId = detail.providerId ?? detail.id;
+    if (typeof rawId !== 'string' || rawId.length === 0) return;
+    if (announced.has(rawId)) return; // dedup announce replies by id
+    announced.set(rawId, {
+      id: rawId,
+      name: typeof detail.name === 'string' ? detail.name : undefined,
+      icon: typeof detail.icon === 'string' ? detail.icon : undefined,
+      target: typeof detail.target === 'string' ? detail.target : undefined,
+    });
+  };
+
+  window.addEventListener(
+    CANTON_ANNOUNCE_PROVIDER_EVENT,
+    onAnnounce as EventListener,
+  );
+  try {
+    window.dispatchEvent(new CustomEvent(CANTON_REQUEST_PROVIDER_EVENT));
+    await new Promise<void>((resolve) => setTimeout(resolve, timeoutMs));
+  } finally {
+    window.removeEventListener(
+      CANTON_ANNOUNCE_PROVIDER_EVENT,
+      onAnnounce as EventListener,
+    );
+  }
+
+  const results: DiscoveredProvider[] = [];
+  for (const wallet of announced.values()) {
+    let provider: CIP0103Provider;
+    try {
+      provider = await make(wallet);
+    } catch {
+      continue; // a wallet whose provider cannot be built is skipped, not fatal
+    }
+    if (!isCIP0103Provider(provider)) continue;
+    results.push({
+      id: wallet.id,
+      provider,
+      source: 'injected',
+      name: wallet.name,
+      icon: wallet.icon,
+    });
+  }
+  return results;
+}
+
+/** Max time to spend on the read-only status() id-probe for ONE injected provider. */
+const INJECTED_ID_PROBE_TIMEOUT_MS = 1500;
+
+function raceTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('id-probe timeout')), ms),
+    ),
+  ]);
+}
+
+/**
+ * Resolve the stable dedup id for an INJECTED (window.canton scan) entry.
+ *
+ * Live reality: Console's `window.canton` has NO top-level `id` — its stable id
+ * is only available via `status().provider.id` (== its announce id/target). So:
+ *   1. use a sync top-level `provider.id` if a provider ever exposes one;
+ *   2. else a READ-ONLY `status()` probe reading `result.provider.id` (Console
+ *      → "lpnf…", no popup / no signing UI), capped so a non-responsive
+ *      injected provider can NEVER block discovery;
+ *   3. else fall back to the discovery-path id.
+ */
+async function resolveInjectedKey(d: DiscoveredProvider): Promise<string> {
+  const sync = (d.provider as unknown as { id?: unknown }).id;
+  if (typeof sync === 'string' && sync.length > 0) return sync;
+
+  try {
+    const status = await raceTimeout(
+      d.provider.request<{ provider?: { id?: unknown } }>({ method: 'status' }),
+      INJECTED_ID_PROBE_TIMEOUT_MS,
+    );
+    const pid = status?.provider?.id;
+    if (typeof pid === 'string' && pid.length > 0) return pid;
+  } catch {
+    // timeout / throw / non-responsive → fall back to the path id
+  }
+  return d.id;
+}
+
+/**
+ * Discover ALL CIP-0103 wallets: the synchronous `window.canton` scan PLUS the
+ * `canton:announceProvider` handshake, MERGED and deduped by stable provider id.
+ *
+ * Dedup keys:
+ *   - INJECTED entries: resolved via {@link resolveInjectedKey} (sync id →
+ *     capped read-only status() probe → path id). Resolved in PARALLEL.
+ *   - ANNOUNCE entries: their `d.id` (== announce id == target == the wallet's
+ *     `provider.id`). NOT status-probed — an offline announce wallet (e.g. Send)
+ *     would otherwise hang up to the channel timeout.
+ *
+ * INJECTED entries are processed FIRST so the direct `window.canton` provider
+ * wins over the announce postMessage shim for a wallet reachable both ways
+ * (e.g. Console announces AND owns `window.canton` → appears exactly once).
+ *
+ * Backward-compatible superset of `discoverInjectedProviders()` (left unchanged).
+ */
+export async function discoverProviders(
+  options: AnnounceDiscoveryOptions = {},
+): Promise<DiscoveredProvider[]> {
+  const injected = discoverInjectedProviders();
+  const announcedResults = await discoverAnnouncedProviders(options);
+
+  // Resolve injected keys in parallel; each probe is independently capped.
+  const injectedKeys = await Promise.all(injected.map(resolveInjectedKey));
+
+  const out: DiscoveredProvider[] = [];
+  const seen = new Set<string>();
+
+  // INJECTED first — the direct window.canton provider wins on duplicate ids.
+  injected.forEach((d, i) => {
+    const key = injectedKeys[i];
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(d);
+  });
+
+  // ANNOUNCE entries keyed by their own id (no status probe → offline-safe).
+  for (const d of announcedResults) {
+    if (seen.has(d.id)) continue;
+    seen.add(d.id);
+    out.push(d);
+  }
+
+  return out;
 }

@@ -49,10 +49,18 @@ export { toProviderRpcError, toPartyLayerError } from './error-map';
 
 export {
   discoverInjectedProviders,
+  discoverAnnouncedProviders,
+  discoverProviders,
   waitForProvider,
   isCIP0103Provider,
 } from './discovery';
-export type { DiscoveredProvider } from './discovery';
+export type {
+  DiscoveredProvider,
+  AnnouncedWallet,
+  AnnounceDiscoveryOptions,
+} from './discovery';
+export { createExtensionChannelProvider } from './extension-channel';
+export type { ExtensionChannelOptions } from './extension-channel';
 
 // ─── Async Wallet ───────────────────────────────────────────────────────────
 
