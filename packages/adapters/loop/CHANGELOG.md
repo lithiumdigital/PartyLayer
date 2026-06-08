@@ -1,5 +1,12 @@
 # @cantonconnect/adapter-loop
 
+## 0.3.8
+
+### Patch Changes
+
+- Updated dependencies [53b1714]
+  - @partylayer/core@0.4.0
+
 ## 0.3.7
 
 ### Patch Changes

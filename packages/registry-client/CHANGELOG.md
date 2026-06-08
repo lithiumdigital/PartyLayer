@@ -1,5 +1,12 @@
 # @cantonconnect/registry-client
 
+## 0.3.2
+
+### Patch Changes
+
+- Updated dependencies [53b1714]
+  - @partylayer/core@0.4.0
+
 ## 0.3.1
 
 ### Patch Changes

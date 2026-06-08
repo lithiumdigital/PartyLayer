@@ -1,5 +1,68 @@
 # @cantonconnect/react
 
+## 0.5.0
+
+### Minor Changes
+
+- c18a275: Add framework-agnostic session React hooks (Step 6b), additively.
+  - **@partylayer/react**: new `useAccount()` and `useAccountEffect()` hooks
+    (wagmi parity) backed by the `@partylayer/session` core via
+    `useSyncExternalStore` (SSR-safe). `PartyLayerProvider` now creates and
+    shares a `SessionStore` (CIP-0103 provider + a new SSR-safe
+    `createLocalStorage()` adapter), running `init()` on mount and `destroy()`
+    on unmount. The existing `useSession` hook is **unchanged** (still
+    SDK-layer, returns `Session | null`); the two coexist until the M2 react v2
+    unification.
+  - **@partylayer/provider**: export the existing `BridgeableClient` type
+    (`export type { BridgeableClient }`) — additive, no runtime change.
+
+  All changes are additive and backward-compatible (no existing export removed,
+  renamed, retyped, or behaviorally changed).
+
+  NOTE: `@partylayer/react` now depends on `@partylayer/session` via
+  `workspace:^`. `@partylayer/session` is still private (0.1.0) and publishes at
+  the M1 cut — **do not publish `@partylayer/react` until `@partylayer/session`
+  is published; both go out together at M1.**
+
+- 53b1714: WalletConnect / QR-only wallets now show a scannable QR **in the connect modal**
+  out of the box (no integrator wiring), with a mobile deep-link, and the official
+  dapp-sdk blank `about:blank` popup is suppressed.
+  - **core / sdk:** add an optional `onDisplayUri(uri)` callback to the adapter
+    `connect()` options and to `ConnectOptions`. Adapters call it with a
+    pairing/display URI (e.g. a WalletConnect `wc:` URI) the moment one is
+    produced, before approval; the connect UI uses it to render a QR / deep-link.
+    Backward-compatible (optional).
+  - **adapter-walletconnect:** the official adapter's `onUri` is now always
+    wrapped so the pairing URI is fanned out to BOTH the integrator's
+    `config.onUri` AND the per-connect `onDisplayUri` — no hand-wiring needed. The
+    adapter also narrowly intercepts the official adapter's blank
+    `window.open('', 'wallet-popup')` during connect (no config flag exists to
+    disable it) and restores `window.open` afterward.
+  - **react:** the modal renders the WC QR itself. `handleWalletClick` passes
+    `onDisplayUri` for non-dual (QR-only / remote-signer) wallets and enters the
+    QR view only once a URI actually arrives (wallets that draw their own QR are
+    unaffected). QR generated via `qrcode` (new dependency). Copy is
+    wallet-agnostic for the generic WalletConnect entry ("Scan with your Canton
+    wallet" / "Open wallet"). The dual-transport (Console) extension + placeholder
+    QR-fallback flow is unchanged.
+
+### Patch Changes
+
+- c1d4763: `WalletModal`'s `onConnect` prop is now **optional** (`onConnect?: (sessionId:
+string) => void`). A connect modal shouldn't require a connect callback — it
+  already self-closes via `onClose` on success, and the session is observable via
+  `useSession()` / `useAccount()`. The success path now calls it conditionally
+  (`onConnect?.(session.sessionId)`). Backward-compatible widening (existing
+  callers passing `onConnect` are unaffected); the documented minimal
+  `<WalletModal isOpen onClose />` snippet now compiles. README reference updated
+  to the real signature (`(sessionId: string) => void`).
+- Updated dependencies [8532f3d]
+- Updated dependencies [c18a275]
+- Updated dependencies [53b1714]
+  - @partylayer/sdk@0.5.0
+  - @partylayer/session@0.2.0
+  - @partylayer/registry-client@0.3.2
+
 ## 0.4.5
 
 ### Patch Changes

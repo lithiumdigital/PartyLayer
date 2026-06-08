@@ -1,5 +1,33 @@
 # @cantonconnect/conformance-runner
 
+## 0.1.10
+
+### Patch Changes
+
+- 8532f3d: Fix: replace runtime `require()` of workspace packages with proper ESM imports
+  so browser/ESM consumers don't crash.
+
+  `PartyLayerClient.asProvider()` did a runtime
+  `require('@partylayer/provider')`. In the ESM build that hits esbuild's
+  `__require` shim and throws **"Dynamic require of \"@partylayer/provider\" is
+  not supported"** in browser bundles (Next dev **and** production), crashing
+  `PartyLayerKit` on mount (`asProvider()` is called from the React provider).
+  It now uses a top-of-file static `import { createProviderBridge } from
+'@partylayer/provider'` — `asProvider()` stays synchronous with the same
+  `CIP0103Provider` return type, and there is no dependency cycle
+  (`@partylayer/provider` does not import `@partylayer/sdk`).
+
+  `@partylayer/conformance-runner` (an ESM `type: module` CLI) used the `require`
+  global (`require.resolve(...)` and a `require(adapterPath)` CJS fallback) in its
+  adapter loader, which is undefined at runtime in ESM. It now derives a real Node
+  require via `createRequire(import.meta.url)`.
+
+- Updated dependencies [42c862d]
+- Updated dependencies [c18a275]
+- Updated dependencies [53b1714]
+  - @partylayer/provider@0.2.0
+  - @partylayer/core@0.4.0
+
 ## 0.1.9
 
 ### Patch Changes

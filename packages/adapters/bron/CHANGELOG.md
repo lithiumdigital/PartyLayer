@@ -1,5 +1,12 @@
 # @cantonconnect/adapter-bron
 
+## 0.2.11
+
+### Patch Changes
+
+- Updated dependencies [53b1714]
+  - @partylayer/core@0.4.0
+
 ## 0.2.10
 
 ### Patch Changes

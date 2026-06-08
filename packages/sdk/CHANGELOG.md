@@ -1,5 +1,65 @@
 # @cantonconnect/sdk
 
+## 0.5.0
+
+### Minor Changes
+
+- 53b1714: WalletConnect / QR-only wallets now show a scannable QR **in the connect modal**
+  out of the box (no integrator wiring), with a mobile deep-link, and the official
+  dapp-sdk blank `about:blank` popup is suppressed.
+  - **core / sdk:** add an optional `onDisplayUri(uri)` callback to the adapter
+    `connect()` options and to `ConnectOptions`. Adapters call it with a
+    pairing/display URI (e.g. a WalletConnect `wc:` URI) the moment one is
+    produced, before approval; the connect UI uses it to render a QR / deep-link.
+    Backward-compatible (optional).
+  - **adapter-walletconnect:** the official adapter's `onUri` is now always
+    wrapped so the pairing URI is fanned out to BOTH the integrator's
+    `config.onUri` AND the per-connect `onDisplayUri` — no hand-wiring needed. The
+    adapter also narrowly intercepts the official adapter's blank
+    `window.open('', 'wallet-popup')` during connect (no config flag exists to
+    disable it) and restores `window.open` afterward.
+  - **react:** the modal renders the WC QR itself. `handleWalletClick` passes
+    `onDisplayUri` for non-dual (QR-only / remote-signer) wallets and enters the
+    QR view only once a URI actually arrives (wallets that draw their own QR are
+    unaffected). QR generated via `qrcode` (new dependency). Copy is
+    wallet-agnostic for the generic WalletConnect entry ("Scan with your Canton
+    wallet" / "Open wallet"). The dual-transport (Console) extension + placeholder
+    QR-fallback flow is unchanged.
+
+### Patch Changes
+
+- 8532f3d: Fix: replace runtime `require()` of workspace packages with proper ESM imports
+  so browser/ESM consumers don't crash.
+
+  `PartyLayerClient.asProvider()` did a runtime
+  `require('@partylayer/provider')`. In the ESM build that hits esbuild's
+  `__require` shim and throws **"Dynamic require of \"@partylayer/provider\" is
+  not supported"** in browser bundles (Next dev **and** production), crashing
+  `PartyLayerKit` on mount (`asProvider()` is called from the React provider).
+  It now uses a top-of-file static `import { createProviderBridge } from
+'@partylayer/provider'` — `asProvider()` stays synchronous with the same
+  `CIP0103Provider` return type, and there is no dependency cycle
+  (`@partylayer/provider` does not import `@partylayer/sdk`).
+
+  `@partylayer/conformance-runner` (an ESM `type: module` CLI) used the `require`
+  global (`require.resolve(...)` and a `require(adapterPath)` CJS fallback) in its
+  adapter loader, which is undefined at runtime in ESM. It now derives a real Node
+  require via `createRequire(import.meta.url)`.
+
+- Updated dependencies [42c862d]
+- Updated dependencies [6103d32]
+- Updated dependencies [c18a275]
+- Updated dependencies [53b1714]
+  - @partylayer/provider@0.2.0
+  - @partylayer/adapter-send@1.0.4
+  - @partylayer/core@0.4.0
+  - @partylayer/adapter-bron@0.2.11
+  - @partylayer/adapter-cantor8@0.2.11
+  - @partylayer/adapter-console@0.3.5
+  - @partylayer/adapter-loop@0.3.8
+  - @partylayer/adapter-nightly@0.2.10
+  - @partylayer/registry-client@0.3.2
+
 ## 0.4.1
 
 ### Patch Changes
