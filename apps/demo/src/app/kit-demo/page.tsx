@@ -90,7 +90,7 @@ const WALLET_LOGOS: Record<string, string> = {
   cantor8: '/wallets/cantor8.png',
   bron: '/wallets/bron.png',
   nightly: '/wallets/nightly.svg',
-  send: '/wallets/send.svg',
+  send: '/wallets/send-logo.jpg',
   walletconnect: '/wallets/walletconnect.svg',
 };
 

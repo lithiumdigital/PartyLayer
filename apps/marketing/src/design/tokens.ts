@@ -80,7 +80,7 @@ export const wallets = [
     name: 'Send',
     description: 'Send Wallet for Canton Network',
     transport: 'Extension',
-    logo: '/wallets/SendBrandColorLogomark.svg',
+    logo: '/wallets/send-logo.jpg',
     homepage: 'https://cantonwallet.com',
   },
   {
