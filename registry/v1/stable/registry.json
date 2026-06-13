@@ -2,9 +2,9 @@
   "metadata": {
     "registryVersion": "1.0.0",
     "schemaVersion": "1.0.0",
-    "publishedAt": "2026-06-10T00:00:00Z",
+    "publishedAt": "2026-06-13T00:00:00Z",
     "channel": "stable",
-    "sequence": 7,
+    "sequence": 8,
     "publisher": "PartyLayer"
   },
   "wallets": [
@@ -173,6 +173,33 @@
         "native": true,
         "evidence": "https://sigilry.org",
         "since": "2026-04-01"
+      }
+    },
+    {
+      "id": "walley",
+      "name": "Walley",
+      "description": "Popup/remote Canton wallet (CIP-0103), bridged via its official @k2flabs/walley-dapp-sdk ProviderAdapter — no PartyLayer-specific adapter package.",
+      "homepage": "https://walley.cc",
+      "supportedNetworks": ["mainnet", "testnet", "devnet"],
+      "capabilities": {
+        "signMessage": true,
+        "signTransaction": false,
+        "submitTransaction": true,
+        "transactionStatus": true,
+        "switchNetwork": false,
+        "multiParty": false,
+        "events": false
+      },
+      "adapter": {
+        "type": "@k2flabs/walley-dapp-sdk",
+        "transport": "discovery-adapter",
+        "config": { "providerId": "walley" }
+      },
+      "sdkVersion": ">=0.8.0",
+      "cip0103": {
+        "native": true,
+        "evidence": "https://walley.cc",
+        "since": "2026-06-13"
       }
     }
   ]

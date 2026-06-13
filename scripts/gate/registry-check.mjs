@@ -40,7 +40,7 @@ const require = createRequire(import.meta.url);
 // cip0103.native in the registry JSON; removing a flag without removing it
 // here fails the gate, which is the intended behaviour.)
 const REQUIRED_CIP0103_NATIVE = {
-  stable: ['console', 'send'],
+  stable: ['console', 'send', 'walley'],
   beta: ['console'],
 };
 
