@@ -27,6 +27,7 @@ import {
   toSessionId,
   toWalletId,
   WalletNotFoundError,
+  AdapterNotRegisteredError,
   CapabilityNotSupportedError,
   NetworkMismatchError,
   detectNetworkMismatch,
@@ -342,6 +343,30 @@ export class PartyLayerClient {
   }
 
   /**
+   * If `walletId` maps to a registry entry with `transport: 'discovery-adapter'`,
+   * return the bits to build an actionable "register its adapter" error; else
+   * null (truly-unknown or non-discovery → plain WalletNotFoundError). Reads the
+   * UNGATED registry (SWR-cached); registry-unavailable → null (safe fallback).
+   */
+  private async unregisteredDiscoveryInfo(
+    walletId: WalletId
+  ): Promise<{ name?: string; providerId?: string; adapterPackage?: string } | null> {
+    try {
+      const registry = await this.registryClient.getRegistry();
+      const entry = registry.wallets.find((w) => toWalletId(w.id) === walletId);
+      if (entry?.adapter?.transport !== 'discovery-adapter') return null;
+      const pid = entry.adapter?.config?.providerId;
+      return {
+        name: entry.name,
+        providerId: typeof pid === 'string' ? pid : entry.id,
+        adapterPackage: typeof entry.adapter?.type === 'string' ? entry.adapter.type : undefined,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Whether announce discovery is active: explicit `discovery.announce`, else
    * ON in the browser and OFF under SSR (no `window`). Canonical: provider.md.
    */
@@ -550,6 +575,13 @@ export class PartyLayerClient {
             metadata: { source: 'native-cip0103' },
           };
         } else {
+          // A known discovery-adapter registry entry that was never registered
+          // (its provider adapter is app-supplied) → actionable error, distinct
+          // from a truly-unknown wallet. Scoped strictly to discovery-adapter.
+          const info = await this.unregisteredDiscoveryInfo(options.walletId);
+          if (info) {
+            throw new AdapterNotRegisteredError(String(options.walletId), info);
+          }
           throw new WalletNotFoundError(String(options.walletId));
         }
       }

@@ -65,6 +65,7 @@ export {
   PartyLayerError,
   PartyLayerError as CantonConnectError,
   WalletNotFoundError,
+  AdapterNotRegisteredError,
   WalletNotInstalledError,
   UserRejectedError,
   OriginNotAllowedError,
