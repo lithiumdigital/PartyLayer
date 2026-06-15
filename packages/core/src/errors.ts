@@ -13,6 +13,7 @@
  */
 export type ErrorCode =
   | 'WALLET_NOT_FOUND'
+  | 'ADAPTER_NOT_REGISTERED'
   | 'WALLET_NOT_INSTALLED'
   | 'USER_REJECTED'
   | 'ORIGIN_NOT_ALLOWED'
@@ -103,6 +104,35 @@ export class WalletNotFoundError extends PartyLayerError {
       details: { walletId },
     });
     this.name = 'WalletNotFoundError';
+  }
+}
+
+/**
+ * A popup/remote (`transport: 'discovery-adapter'`) wallet was requested by
+ * `walletId`, but its provider adapter — which the app supplies, not the SDK —
+ * was never registered. Distinct from {@link WalletNotFoundError}: the wallet IS
+ * a known registry entry, it's just not wired up. The message is actionable
+ * (how to register it) and is built generically from the registry entry, so it
+ * works for any discovery-adapter wallet. Higher-level UIs (e.g. PartyLayerKit)
+ * can `catch (e instanceof AdapterNotRegisteredError)` to surface wiring help.
+ */
+export class AdapterNotRegisteredError extends PartyLayerError {
+  constructor(
+    walletId: string,
+    info: { name?: string; providerId?: string; adapterPackage?: string } = {}
+  ) {
+    const providerId = info.providerId ?? walletId;
+    const label = info.name ? `"${info.name}" (${walletId})` : `"${walletId}"`;
+    const pkg = info.adapterPackage ? ` (provider from ${info.adapterPackage})` : '';
+    super(
+      `Wallet ${label} is a popup/remote (discovery-adapter) wallet — its provider is ` +
+        `supplied by your app, not bundled${pkg}. Register it with createPartyLayer: ` +
+        `adapters: [{ providerId: '${providerId}', create: (host) => /* new provider adapter */ }]. ` +
+        `See https://partylayer.xyz/docs/wallets`,
+      'ADAPTER_NOT_REGISTERED',
+      { details: { walletId, providerId } }
+    );
+    this.name = 'AdapterNotRegisteredError';
   }
 }
 
