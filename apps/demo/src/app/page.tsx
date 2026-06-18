@@ -501,12 +501,13 @@ const WALLET_LOGOS: Record<string, string> = {
 
 /* ─── Nav (from apps/marketing/src/components/Nav.tsx) ─────────────────── */
 
-const navLinks = [
+const navLinks: { label: string; href: string; badge?: string; external?: boolean }[] = [
   { label: 'Docs', href: '/docs/introduction' },
   { label: 'Features', href: '#features' },
   { label: 'Wallets', href: '#wallets' },
   { label: 'Quickstart', href: '#quickstart' },
   { label: 'FAQ', href: '#faq' },
+  { label: 'Studio', href: 'https://studio.partylayer.xyz', badge: 'new', external: true },
 ];
 
 /**
@@ -587,11 +588,17 @@ function Nav({ onConnect }: { onConnect: () => void }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: bp === 'tablet' ? 16 : 32 }}>
             {navLinks.map(link => (
               <a key={link.href} href={link.href}
-                style={{ fontSize: bp === 'tablet' ? 13 : 14, fontWeight: 500, color: t.slate600, textDecoration: 'none', transition: `color 150ms ${t.ease}` }}
-                onMouseOver={e => { (e.target as HTMLElement).style.color = t.fg; }}
-                onMouseOut={e => { (e.target as HTMLElement).style.color = t.slate600; }}
+                {...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                style={{ ...(link.badge ? { display: 'inline-flex', alignItems: 'center' } : {}), fontSize: bp === 'tablet' ? 13 : 14, fontWeight: 500, color: t.slate600, textDecoration: 'none', transition: `color 150ms ${t.ease}` }}
+                onMouseOver={e => { (e.currentTarget as HTMLElement).style.color = t.fg; }}
+                onMouseOut={e => { (e.currentTarget as HTMLElement).style.color = t.slate600; }}
               >
                 {link.label}
+                {link.badge && (
+                  <span style={{ marginLeft: 6, padding: '1px 6px', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3, color: t.brand600, background: t.brand50, border: `1px solid ${t.brand100}`, borderRadius: 9999 }}>
+                    {link.badge}
+                  </span>
+                )}
               </a>
             ))}
           </div>
@@ -709,12 +716,18 @@ function Nav({ onConnect }: { onConnect: () => void }) {
         }}>
           {navLinks.map(link => (
             <a key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)}
+              {...(link.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
               style={{
-                display: 'block', padding: '14px 0', fontSize: 15, fontWeight: 500,
+                display: 'flex', alignItems: 'center', padding: '14px 0', fontSize: 15, fontWeight: 500,
                 color: t.slate600, textDecoration: 'none',
                 borderBottom: `1px solid ${t.border}`,
               }}>
               {link.label}
+              {link.badge && (
+                <span style={{ marginLeft: 8, padding: '1px 6px', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3, color: t.brand600, background: t.brand50, border: `1px solid ${t.brand100}`, borderRadius: 9999 }}>
+                  {link.badge}
+                </span>
+              )}
             </a>
           ))}
         </div>
