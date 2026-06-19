@@ -77,18 +77,6 @@ type RegWallet = {
   installation?: { windowProperty?: string; deeplink?: string; oauth?: boolean; scriptTag?: string };
 };
 
-/* WalletConnect is NOT a registry entry — it's a relay transport, surfaced live
- * in the modal. We append it manually so the ecosystem cards + strip MIRROR the
- * modal (Anıl's consistency call). This is the one explicit, non-registry card;
- * every registry wallet still auto-appears dynamically. transport 'remote'
- * matches the adapter's own runtime transport (walletconnect-adapter.ts). */
-const WALLETCONNECT_CARD: RegWallet = {
-  id: 'walletconnect',
-  name: 'WalletConnect',
-  description: 'Connect any WalletConnect-compatible Canton wallet via QR or deep link.',
-  adapter: { transport: 'remote' },
-};
-
 function useRegistryWallets(): RegWallet[] {
   const client = usePartyLayer();
   const [list, setList] = useState<RegWallet[]>([]);
@@ -96,7 +84,7 @@ function useRegistryWallets(): RegWallet[] {
     let alive = true;
     client.registryClient
       .getRegistry()
-      .then((r) => { if (alive) setList([...((r.wallets ?? []) as RegWallet[]), WALLETCONNECT_CARD]); })
+      .then((r) => { if (alive) setList([...((r.wallets ?? []) as RegWallet[])]); })
       .catch(() => { /* offline → empty; the section just renders nothing */ });
     return () => { alive = false; };
   }, [client]);
