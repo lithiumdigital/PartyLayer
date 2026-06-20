@@ -22,7 +22,7 @@ export default function WalletBalancesContent() {
 
       <Callout type="tip">
         See the full working example in{' '}
-        <a href="https://github.com/anthropics/PartyLayer/tree/main/examples/wallet-balance-loop" style={{ color: '#E6B800' }}>
+        <a href="https://github.com/PartyLayer/PartyLayer/tree/main/examples/wallet-balance-loop" style={{ color: '#E6B800' }}>
           examples/wallet-balance-loop/
         </a>{' '}
         — a minimal Vite + React + TypeScript app that connects Loop wallet, queries
