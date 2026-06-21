@@ -27,6 +27,7 @@ import type {
   CapabilityKey,
   PartyId,
 } from '@partylayer/core';
+import { normalizeLedgerMethodLower, ledgerApiBodyToObject } from '@partylayer/core';
 import {
   toWalletId,
   toPartyId,
@@ -415,7 +416,7 @@ export class NightlyAdapter implements WalletAdapter {
     try {
       const provider = window.nightly?.canton as unknown as
         | (NightlyCantonProvider & {
-            ledgerApi?: (p: { requestMethod: string; resource: string; body?: string }) => Promise<unknown>;
+            ledgerApi?: (p: { requestMethod: string; resource: string; body?: string | Record<string, unknown> }) => Promise<unknown>;
             request?: (args: { method: string; params?: unknown }) => Promise<unknown>;
           })
         | undefined;
@@ -424,17 +425,23 @@ export class NightlyAdapter implements WalletAdapter {
         throw new Error('Not connected to Nightly Wallet');
       }
 
+      // Nightly is a CIP-0103 RPC wallet — canonical dApp API shape: lower-case
+      // verb + an OBJECT body. The SDK boundary accepts both cases + a string
+      // body, so normalize here.
+      const requestMethod = normalizeLedgerMethodLower(params.requestMethod);
+      const body = ledgerApiBodyToObject(params.body);
+
       ctx.logger.debug('Proxying ledger API request via Nightly Wallet', {
         sessionId: session.sessionId,
-        requestMethod: params.requestMethod,
+        requestMethod,
         resource: params.resource,
       });
 
       if (typeof provider.ledgerApi === 'function') {
         const result = await provider.ledgerApi({
-          requestMethod: params.requestMethod,
+          requestMethod,
           resource: params.resource,
-          body: params.body,
+          body,
         });
         const response = result as { response?: string } | string;
         return {
@@ -448,9 +455,9 @@ export class NightlyAdapter implements WalletAdapter {
         const result = await provider.request({
           method: 'ledgerApi',
           params: {
-            requestMethod: params.requestMethod,
+            requestMethod,
             resource: params.resource,
-            body: params.body,
+            body,
           },
         });
         const response = result as { response?: string } | string;

@@ -37,6 +37,7 @@ import type {
   CapabilityKey,
   PartyId,
 } from '@partylayer/core';
+import { normalizeLedgerMethodLower, ledgerApiBodyToObject } from '@partylayer/core';
 import {
   toWalletId,
   toPartyId,
@@ -566,9 +567,15 @@ export class ConsoleAdapter implements WalletAdapter {
     const transport = resolveTransportLabel(this.target, this.activeTransport);
 
     try {
+      // Console is a CIP-0103 RPC wallet — canonical dApp API shape: lower-case
+      // verb + an OBJECT body. The SDK boundary accepts both cases + a string
+      // body, so normalize here.
+      const requestMethod = normalizeLedgerMethodLower(params.requestMethod);
+      const body = ledgerApiBodyToObject(params.body);
+
       ctx.logger.debug('Proxying ledger API request via Console Wallet', {
         sessionId: session.sessionId,
-        requestMethod: params.requestMethod,
+        requestMethod,
         resource: params.resource,
         transport,
       });
@@ -579,7 +586,7 @@ export class ConsoleAdapter implements WalletAdapter {
         ledgerApi?: (p: {
           requestMethod: string;
           resource: string;
-          body?: string;
+          body?: string | Record<string, unknown>;
         }) => Promise<unknown>;
         request?: (args: {
           method: string;
@@ -589,9 +596,9 @@ export class ConsoleAdapter implements WalletAdapter {
 
       if (typeof wallet.ledgerApi === 'function') {
         const result = await wallet.ledgerApi({
-          requestMethod: params.requestMethod,
+          requestMethod,
           resource: params.resource,
-          body: params.body,
+          body,
         });
         const response = result as { response?: string } | string;
         return {
@@ -606,9 +613,9 @@ export class ConsoleAdapter implements WalletAdapter {
         const result = await wallet.request({
           method: 'ledgerApi',
           params: {
-            requestMethod: params.requestMethod,
+            requestMethod,
             resource: params.resource,
-            body: params.body,
+            body,
           },
         });
         const response = result as { response?: string } | string;

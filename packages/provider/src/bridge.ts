@@ -24,6 +24,7 @@ import type {
   CIP0103TxChangedEvent,
   CIP0103TxStatus,
   CIP0103LedgerApiResponse,
+  LedgerApiMethod,
 } from '@partylayer/core';
 import { CIP0103_EVENTS } from '@partylayer/core';
 import { CIP0103EventBus } from './event-bus';
@@ -82,7 +83,7 @@ export interface BridgeableClient {
   ledgerApi?(params: {
     requestMethod: string;
     resource: string;
-    body?: string;
+    body?: string | Record<string, unknown>;
   }): Promise<{ response: string }>;
   getRegistryStatus(): unknown;
   on(event: string, handler: (event: unknown) => void | Promise<void>): () => void;
@@ -286,9 +287,13 @@ async function handleRequest(
         }
         const p = normalizeParams(params);
         const result = await client.ledgerApi({
-          requestMethod: String(p.requestMethod ?? 'GET') as 'GET' | 'POST' | 'PUT' | 'DELETE',
+          // Forward the verb case AND the body type (string OR object) UNCHANGED;
+          // the active wallet's adapter normalizes to its required shape
+          // (lower+object for CIP-0103, string for Loop/Bron). Do NOT String()
+          // the body — that would turn an object into "[object Object]".
+          requestMethod: String(p.requestMethod ?? 'get') as LedgerApiMethod,
           resource: String(p.resource ?? ''),
-          body: p.body ? String(p.body) : undefined,
+          body: (p.body ?? undefined) as string | Record<string, unknown> | undefined,
         });
         return result satisfies CIP0103LedgerApiResponse;
       }

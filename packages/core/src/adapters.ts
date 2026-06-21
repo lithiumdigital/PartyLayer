@@ -27,6 +27,7 @@ import type {
 import {
   CapabilityNotSupportedError,
   WalletNotInstalledError,
+  TransportError,
 } from './errors';
 
 /**
@@ -80,15 +81,94 @@ export interface SubmitTransactionParams {
 }
 
 /**
- * Ledger API proxy parameters (CIP-0103 ledgerApi method)
+ * Method verb accepted at the SDK boundary for {@link LedgerApiParams}. A
+ * friendly superset: both cases are accepted because wallets diverge (Send's
+ * schema requires lower-case; CIP-0103 providers use upper-case). Each adapter
+ * normalizes the case to what its wallet requires — see {@link normalizeLedgerMethodUpper}.
+ */
+export type LedgerApiMethod =
+  | 'GET'
+  | 'POST'
+  | 'PUT'
+  | 'DELETE'
+  | 'PATCH'
+  | 'get'
+  | 'post'
+  | 'put'
+  | 'delete'
+  | 'patch';
+
+/**
+ * Ledger API proxy parameters (CIP-0103 ledgerApi method).
+ *
+ * This is a friendly superset so ONE call works across all wallets: the case of
+ * `requestMethod` is normalized per-adapter, and `body` may be a JSON string OR
+ * a plain object — each adapter coerces it to the shape its wallet requires
+ * (Send wants an object; CIP-0103 providers / Loop want a JSON string).
  */
 export interface LedgerApiParams {
-  /** HTTP method for the JSON Ledger API */
-  requestMethod: 'GET' | 'POST' | 'PUT' | 'DELETE';
-  /** Resource path (e.g., "/v2/state/acs") */
+  /** HTTP method for the JSON Ledger API (case normalized per-adapter). */
+  requestMethod: LedgerApiMethod;
+  /** Resource path (e.g., "/v2/state/active-contracts"). */
   resource: string;
-  /** Optional JSON body */
-  body?: string;
+  /** Optional JSON body — a JSON string OR a plain object (coerced per-adapter). */
+  body?: string | Record<string, unknown>;
+}
+
+/**
+ * Normalize a {@link LedgerApiParams} verb to LOWER-case — the canonical
+ * CIP-0103 dApp API form (splice-wallet-kernel `LedgerApiRequest.requestMethod`
+ * is the enum `["get","post","patch","put","delete"]`). Every `window.canton`
+ * CIP-0103 RPC wallet (Send / Console / Nightly / WalletConnect / the announce
+ * bridge) expects this.
+ */
+export function normalizeLedgerMethodLower(
+  method: LedgerApiMethod,
+): 'get' | 'post' | 'patch' | 'put' | 'delete' {
+  return method.toLowerCase() as 'get' | 'post' | 'patch' | 'put' | 'delete';
+}
+
+/**
+ * Coerce a {@link LedgerApiParams} body to a plain OBJECT (or `undefined`) — the
+ * canonical CIP-0103 dApp API form (`LedgerApiRequest.body` is
+ * `{ type: 'object' }`). An object passes through; a JSON string is parsed; a
+ * non-JSON-parseable string throws.
+ */
+export function ledgerApiBodyToObject(
+  body: string | Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (body == null) return undefined;
+  if (typeof body !== 'string') return body;
+  try {
+    return JSON.parse(body) as Record<string, unknown>;
+  } catch {
+    throw new TransportError(
+      'ledgerApi body must be a JSON object (or JSON-parseable string) for a CIP-0103 wallet',
+    );
+  }
+}
+
+/**
+ * Normalize a {@link LedgerApiParams} verb to upper-case. Retained for the Bron
+ * REST proxy (case-insensitive HTTP JSON API) — NOT a CIP-0103 RPC wallet; the
+ * CIP-0103 wallets use {@link normalizeLedgerMethodLower}.
+ */
+export function normalizeLedgerMethodUpper(
+  method: LedgerApiMethod,
+): 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' {
+  return method.toUpperCase() as 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+}
+
+/**
+ * Coerce a {@link LedgerApiParams} body to a JSON string (or `undefined`) — the
+ * form Loop's handlers and the Bron REST proxy expect. An object is
+ * `JSON.stringify`-d; a string passes through verbatim.
+ */
+export function ledgerApiBodyToString(
+  body: string | Record<string, unknown> | undefined,
+): string | undefined {
+  if (body == null) return undefined;
+  return typeof body === 'string' ? body : JSON.stringify(body);
 }
 
 /**
