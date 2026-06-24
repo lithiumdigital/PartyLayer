@@ -106,6 +106,18 @@ function resolveTransportLabel(
 }
 
 /**
+ * Base64-encode a message's UTF-8 bytes. Ported byte-for-byte from the generic
+ * announce adapter's `toBase64Message` (packages/sdk/src/announce-adapter.ts) so
+ * the encoding is identical to the live-validated Console signMessage call.
+ */
+function toBase64Message(message: string): string {
+  const bytes = new TextEncoder().encode(message);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary);
+}
+
+/**
  * Console Wallet adapter
  *
  * Implements WalletAdapter interface for Console Wallet using the official
@@ -420,7 +432,13 @@ export class ConsoleAdapter implements WalletAdapter {
   }
 
   /**
-   * Sign a message. Converts plain text to hex for the SDK.
+   * Sign a message. Encodes the message as base64 for the SDK.
+   *
+   * LIVE-VERIFIED against the real Console extension (provider lpnf…): Console
+   * signs a base64-encoded message; the prior `{ message: { hex } }` shape was
+   * superseded. The dapp-sdk's `SignMessageRequest.message` is `{ hex } | { base64 }`
+   * (dapp-sdk types/signed.type.d.ts), so we pass the SDK's base64 form
+   * `{ message: { base64 } }` (no metaData, matching the validated call).
    *
    * Works identically for both local and remote transports — the SDK routes
    * the request to the correct transport internally.
@@ -439,26 +457,22 @@ export class ConsoleAdapter implements WalletAdapter {
         transport,
       });
 
-      // Convert message to hex (SDK expects { message: { hex } })
-      const hex =
-        '0x' +
-        Array.from(new TextEncoder().encode(params.message))
-          .map((b) => b.toString(16).padStart(2, '0'))
-          .join('');
-
-      const result = await (await getConsoleWallet()).signMessage({
-        message: { hex },
-        metaData: {
-          purpose: 'sign-message',
-          ...(params.domain ? { domain: params.domain } : {}),
-          ...(params.nonce ? { nonce: params.nonce } : {}),
-        },
+      // Base64-encode the message and send the SDK's base64 form
+      // `{ message: { base64 } }` with NO metaData (the live-validated shape).
+      const result: unknown = await (await getConsoleWallet()).signMessage({
+        message: { base64: toBase64Message(params.message) },
       });
 
-      const signature = result ?? '';
+      // Response: the dapp-sdk wrapper returns the signature as a string
+      // (SignedMessageResponse = string | undefined). Read defensively (mirrors
+      // the generic adapter) so a `{ signature }` shape also normalizes.
+      const sig =
+        typeof result === 'string'
+          ? result
+          : (result as { signature?: unknown } | null)?.signature ?? '';
 
       return {
-        signature: toSignature(String(signature)),
+        signature: toSignature(String(sig)),
         partyId: session.partyId,
         message: params.message,
         nonce: params.nonce,

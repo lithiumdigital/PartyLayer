@@ -672,8 +672,8 @@ describe('ConsoleAdapter', () => {
       capabilitiesSnapshot: ['signMessage'],
     };
 
-    it.skipIf(!isBrowser)(
-      'should convert message to hex and call SDK',
+    it(
+      'should base64-encode the message and call the SDK with { message: { base64 } } and NO metaData',
       async () => {
         mockConsoleWallet.signMessage.mockResolvedValue('sig_abc123');
 
@@ -682,36 +682,58 @@ describe('ConsoleAdapter', () => {
           message: 'Hello',
         });
 
+        // base64('Hello') === 'SGVsbG8='. No { hex } object, no metaData.
         expect(mockConsoleWallet.signMessage).toHaveBeenCalledWith({
-          message: { hex: '0x48656c6c6f' },
-          metaData: { purpose: 'sign-message' },
+          message: { base64: 'SGVsbG8=' },
         });
+        const callArg = mockConsoleWallet.signMessage.mock.calls[0][0] as Record<string, unknown>;
+        expect('metaData' in callArg).toBe(false);
+        expect('hex' in (callArg.message as object)).toBe(false);
+
         expect(result.signature).toBeTruthy();
         expect(result.partyId).toBe(toPartyId('party::signer'));
         expect(result.message).toBe('Hello');
       },
     );
 
-    it.skipIf(!isBrowser)(
-      'should include domain and nonce in metaData',
+    it(
+      'normalizes a STRING response (dapp-sdk SignedMessageResponse = string)',
+      async () => {
+        mockConsoleWallet.signMessage.mockResolvedValue('0xRAWSIG');
+        const adapter = new ConsoleAdapter({ target: 'local' });
+        const result = await adapter.signMessage(ctx, session as any, { message: 'Hello' });
+        expect(String(result.signature)).toBe('0xRAWSIG');
+      },
+    );
+
+    it(
+      'normalizes a { signature } OBJECT response (defensive)',
+      async () => {
+        mockConsoleWallet.signMessage.mockResolvedValue({ signature: '0xFROMOBJECT' } as any);
+        const adapter = new ConsoleAdapter({ target: 'local' });
+        const result = await adapter.signMessage(ctx, session as any, { message: 'Hello' });
+        expect(String(result.signature)).toBe('0xFROMOBJECT');
+      },
+    );
+
+    it(
+      'preserves domain and nonce on the SignedMessage (no longer sent as metaData)',
       async () => {
         mockConsoleWallet.signMessage.mockResolvedValue('sig_xyz');
 
         const adapter = new ConsoleAdapter();
-        await adapter.signMessage(ctx, session as any, {
+        const result = await adapter.signMessage(ctx, session as any, {
           message: 'Test',
           domain: 'test.com',
           nonce: 'nonce-1',
         });
 
-        expect(mockConsoleWallet.signMessage).toHaveBeenCalledWith({
-          message: expect.any(Object),
-          metaData: {
-            purpose: 'sign-message',
-            domain: 'test.com',
-            nonce: 'nonce-1',
-          },
-        });
+        // domain/nonce are NOT sent to the wallet (no metaData); preserved on output.
+        const callArg = mockConsoleWallet.signMessage.mock.calls[0][0] as Record<string, unknown>;
+        expect('metaData' in callArg).toBe(false);
+        expect(result.domain).toBe('test.com');
+        expect(result.nonce).toBe('nonce-1');
+        expect(result.message).toBe('Test');
       },
     );
 
