@@ -46,7 +46,7 @@ import type {
   WalletAdapter,
   WalletId,
 } from '@partylayer/core';
-import { toPartyId, toWalletId, normalizeLedgerMethodLower, ledgerApiBodyToObject } from '@partylayer/core';
+import { toPartyId, toWalletId, toSignature, normalizeLedgerMethodLower, ledgerApiBodyToObject, isRecognizedNetwork } from '@partylayer/core';
 
 /** Canonical providerId prefix for an announced extension (provider.md: `browser:ext:<id>`). */
 export const ANNOUNCED_WALLET_ID_PREFIX = 'browser:ext:';
@@ -71,6 +71,15 @@ export interface AnnounceAdapterConfig {
   ledgerApi?: boolean;
   /** Populate the richer `session.metadata` on connect when the provider returns it. */
   metadata?: boolean;
+  /**
+   * Base64-encode the `signMessage` payload. LIVE-VERIFIED: Console's
+   * `window.canton` signMessage expects `{ message: <base64 string> }` (base64 of
+   * the message's UTF-8 bytes, with NO `metaData`); raw text, `{ hex }`, and
+   * `metaData` all crash inside Console. Absent/false keeps the raw string the
+   * spec type declares (e.g. Send). Opt-in, like the other flags — no
+   * wallet-specific code in the adapter; the registry `adapter.config` drives it.
+   */
+  signMessageBase64?: boolean;
   /**
    * Declarative wallet-specific STATIC metadata (e.g. `{ signingMethod:
    * 'webauthn-prf' }`) — the wagmi connector-property pattern (like rdns/iconUrl).
@@ -134,6 +143,20 @@ function mapTxStatus(
   }
 }
 
+/**
+ * Base64-encode a message's UTF-8 bytes. LIVE-VERIFIED against the real Console
+ * extension (provider lpnf…): Console's `window.canton` signMessage wants
+ * `{ message: <base64 string> }` (a base64 STRING, not a `{ hex }` object, not
+ * raw text). `btoa(btoa-of-utf8-bytes)` reproduces the verified-success call
+ * (`btoa('hello canton')` for ASCII) and is correct for all UTF-8.
+ */
+function toBase64Message(message: string): string {
+  const bytes = new TextEncoder().encode(message);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary);
+}
+
 export class GenericAnnounceAdapter implements WalletAdapter {
   readonly walletId: WalletId;
   readonly name: string;
@@ -143,6 +166,7 @@ export class GenericAnnounceAdapter implements WalletAdapter {
   private readonly metadataEnabled: boolean;
   private readonly staticMetadata?: Record<string, string>;
   private readonly mapError?: (err: unknown) => Error | undefined;
+  private readonly signMessageBase64: boolean;
 
   // Optional WalletAdapter surface — assigned in the ctor ONLY when configured,
   // so `getCapabilities()` and `'x' in adapter` feature-detection stay honest.
@@ -163,6 +187,7 @@ export class GenericAnnounceAdapter implements WalletAdapter {
     this.metadataEnabled = config?.metadata === true;
     this.staticMetadata = config?.staticMetadata;
     this.mapError = config?.mapError;
+    this.signMessageBase64 = config?.signMessageBase64 === true;
     if (config?.events) this.on = this.makeOn();
     if (config?.restore) this.restore = this.makeRestore();
     if (config?.ledgerApi) this.ledgerApi = this.makeLedgerApi();
@@ -206,10 +231,21 @@ export class GenericAnnounceAdapter implements WalletAdapter {
       const reportedNetwork = status?.network?.networkId;
 
       const partyId = toPartyId(account.partyId);
+      // Network capture: trust the FIRST RECOGNIZED of [wallet-reported, account,
+      // dApp ctx]. Mirrors the discovery-adapter bridge (discovery-adapter.ts:243-246)
+      // and isRecognizedNetwork's own doc (core/src/network.ts): an UNRECOGNIZED
+      // value (e.g. Console's account.networkId "CANTON_NETWORK", which normalizes
+      // to "canton:CANTON_NETWORK" ∉ KNOWN_CAIP2) must NOT override the dApp's
+      // configured ctx.network — otherwise detectNetworkMismatch (client.ts:631)
+      // sees a non-CAIP2 value and emits a FALSE-POSITIVE session:networkMismatch.
+      const network =
+        [reportedNetwork, account.networkId, ctx.network].find(
+          (n): n is string => typeof n === 'string' && isRecognizedNetwork(n),
+        ) ?? ctx.network;
       const session: Partial<Session> = {
         walletId: this.walletId,
         partyId,
-        network: (reportedNetwork ?? account.networkId ?? ctx.network) as NetworkId,
+        network: network as NetworkId,
       };
       // Additive: richer metadata only when opted in AND the provider returned it.
       // Static config fills gaps; runtime RPC wins on a key collision (static
@@ -231,15 +267,35 @@ export class GenericAnnounceAdapter implements WalletAdapter {
 
   async signMessage(
     _ctx: AdapterContext,
-    _session: Session,
+    session: Session,
     params: SignMessageParams,
   ): Promise<SignedMessage> {
-    return this.guarded(() =>
-      this.provider.request<SignedMessage>({
-        method: 'signMessage',
-        params: { message: params.message },
-      }),
-    );
+    return this.guarded(async () => {
+      // Param shape: spec-default is the bare string `{ message }` (Send). When
+      // `signMessageBase64` is configured (Console), send `{ message: <base64> }`
+      // and NOTHING else. LIVE-VERIFIED against Console (provider lpnf…): a base64
+      // string SUCCEEDED; raw text, a `{ hex }` object, and any `metaData` field
+      // all crashed inside Console — so we send only the base64 string.
+      const rpcParams = this.signMessageBase64
+        ? { message: toBase64Message(params.message) }
+        : { message: params.message };
+
+      const res = await this.provider.request<unknown>({ method: 'signMessage', params: rpcParams });
+
+      // Response normalization (universal): the provider may return a bare
+      // signature string OR `{ signature }`; synthesize the full SignedMessage
+      // from session + params (matches ConsoleAdapter and SendAdapter). Additive
+      // for Send — adds partyId/message, removes nothing.
+      const sig =
+        typeof res === 'string' ? res : (res as { signature?: unknown } | null)?.signature ?? '';
+      return {
+        signature: toSignature(String(sig)),
+        partyId: session.partyId,
+        message: params.message,
+        nonce: params.nonce,
+        domain: params.domain,
+      };
+    });
   }
 
   async submitTransaction(
