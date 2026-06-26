@@ -502,6 +502,9 @@ importers:
 
   packages/react:
     dependencies:
+      '@partylayer/core':
+        specifier: workspace:^
+        version: link:../core
       '@partylayer/registry-client':
         specifier: workspace:^
         version: link:../registry-client
