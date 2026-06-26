@@ -3,15 +3,15 @@
  *
  * These are a lightweight, standard representation of the cost fields the Canton
  * JSON Ledger API already exposes (Canton 3.5.5). PartyLayer does NOT own ledger
- * transport — the dApp supplies its own cost-fetcher against its validator; this
+ * transport. The dApp supplies its own cost-fetcher against its validator; this
  * module only provides the shared types + pure helpers so `@partylayer/react` and
  * (later) `@partylayer/vue` can build cost hooks/UI on a common foundation.
  *
  * Field names below mirror the node's OpenAPI schema verbatim:
  *   - estimate (pre-execution):   `CostEstimation` (under
  *     `JsPrepareSubmissionResponse.costEstimation`, optional on the response)
- *   - actual (post-execution):    `paidTrafficCost` (on the completion —
- *     authoritative for command-driven flows — and on the transaction)
+ *   - actual (post-execution):    `paidTrafficCost` (on the completion,
+ *     authoritative for command-driven flows, and on the transaction)
  *
  * All cost values are int64 on the wire and can exceed `Number.MAX_SAFE_INTEGER`,
  * so they are represented as a 64-bit-safe decimal string ({@link TrafficCost})
@@ -50,7 +50,7 @@ export interface CostEstimation {
 
   /**
    * Estimated traffic cost of the confirmation response associated with the
-   * transaction — also an indication of what other confirming nodes of the party
+   * transaction, also an indication of what other confirming nodes of the party
    * will incur to approve/reject it. int64-as-string.
    */
   confirmationResponseTrafficCostEstimation: TrafficCost;
@@ -68,7 +68,7 @@ export interface CostEstimation {
  *
  * On the wire this is the optional `paidTrafficCost` field; for command-driven
  * flows the authoritative source is the completion's `paidTrafficCost`, mirrored
- * on the resulting transaction. It is optional (may be absent — e.g. for updates
+ * on the resulting transaction. It is optional (may be absent, e.g. for updates
  * initiated by another participant, or processed before the node served traffic
  * cost on the Ledger API), so model it as `PaidTrafficCost | undefined` at call sites.
  */
@@ -78,7 +78,7 @@ export type PaidTrafficCost = TrafficCost;
  * Validate and brand a traffic-cost value as a {@link TrafficCost}.
  *
  * Accepts a decimal `string` (recommended for full int64 range), a `number`
- * (must be a safe integer — pass large int64 values as a string/bigint to avoid
+ * (must be a safe integer: pass large int64 values as a string/bigint to avoid
  * precision loss), or a `bigint`. The result is the canonical decimal string.
  *
  * @throws {TypeError} if the value is not a non-negative integer (non-integer,

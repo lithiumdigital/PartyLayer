@@ -1,9 +1,9 @@
 /**
- * CostPreview — a presentational traffic-cost panel for Canton dApps.
+ * CostPreview: a presentational traffic-cost panel for Canton dApps.
  *
  * RainbowKit-style sibling to ConnectButton: it receives cost data as PROPS and
  * renders it. It does NOT call any hook, does NOT call usePartyLayer, does NOT
- * reach any ledger/validator, and does NOT use TanStack Query — so it lives on the
+ * reach any ledger/validator, and does NOT use TanStack Query, so it lives on the
  * MAIN entrypoint, not /query. The dApp calls `useTransactionCostEstimate` /
  * `usePaidTrafficCost` itself and passes the results in. A thin UX layer over the
  * cost fields the dApp already has (Model 2).
@@ -27,7 +27,7 @@ export interface CostPreviewProps {
   error?: Error | null;
   /**
    * Optional value formatter (e.g. convert to CC). When omitted, the raw int64
-   * string is rendered as-is — no invented unit or conversion.
+   * string is rendered as-is, no invented unit or conversion.
    */
   formatCost?: (cost: TrafficCost) => React.ReactNode;
   /** Additional CSS class name (applied to the container). */
@@ -143,7 +143,7 @@ export function CostPreview({
                     gap: '6px',
                   }}
                 >
-                  {/* Thin brand accent — never used as readable text. */}
+                  {/* Thin brand accent, never used as readable text. */}
                   <span
                     aria-hidden="true"
                     style={{
