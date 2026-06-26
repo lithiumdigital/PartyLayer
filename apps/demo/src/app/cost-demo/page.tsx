@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * CIP-0104 cost-visibility reference — a standalone, embeddable demo.
+ * CIP-0104 cost-visibility reference: a standalone, embeddable demo.
  *
  * Reads a pre-submission CostEstimation LIVE from a Canton validator (via the
  * /api/cost-estimate backend proxy) and renders it through our real hook +
@@ -10,7 +10,7 @@
  * page is never blank and needs no node.
  *
  * Model 2: cost is wallet-agnostic. This page uses NO PartyLayerProvider, no
- * connect, no wallet — only a QueryClientProvider (for the hook) and a
+ * connect, no wallet: only a QueryClientProvider (for the hook) and a
  * ThemeProvider (for CostPreview).
  */
 import { useState } from 'react';
@@ -21,13 +21,17 @@ import { toTrafficCost } from '@partylayer/core';
 import { fetchCostEstimate } from '../../lib/cost-fetcher';
 
 /**
- * Illustrative post-execution actual cost. We do NOT execute a transaction here
- * (no CC spent, no state change), so there is no real captured paid value yet —
- * this is a labeled sample. Wiring it live reads `paid_traffic_cost` from a
- * completed transaction's completion, which requires executing a real tx (a
- * follow-up).
+ * Real post-execution actual cost (`paid_traffic_cost`), captured from one
+ * controlled, successful, participant-signed execute against our DevNet
+ * validator: a self-signatory ValidatorRight create (no value transfer, no CC
+ * spent, only the tiny traffic cost shown here). updateId
+ * 1220e61aa500a7a09f95416b188409f0ef470aa8397103b3d5ec35e07e13803d4481.
+ *
+ * The demo shows this captured value rather than executing on every visit, which
+ * would spend traffic per visitor and bloat the ledger. The pre-submission
+ * estimate above stays live per visit.
  */
-const SAMPLE_PAID = toTrafficCost('2610');
+const CAPTURED_PAID = toTrafficCost('2577');
 
 function CostDemo() {
   const { costEstimate, isPending, error, refetch, isFetching } = useTransactionCostEstimate({
@@ -77,17 +81,20 @@ function CostDemo() {
           <h2 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 8px' }}>Actual paid cost</h2>
           <p style={{ color: '#64748B', fontSize: 12.5, margin: '0 0 8px', lineHeight: 1.5 }}>
             The realized cost reads <code>paid_traffic_cost</code> from a completed transaction&apos;s
-            completion. The value below is an illustrative sample — no transaction was executed here;
-            wiring it live (which requires submitting a real tx) is a follow-up.
+            completion. The value below is the real cost captured from one controlled, successful
+            execute against our DevNet validator (a self-signatory ValidatorRight create), not an
+            illustrative sample. For the same command the live estimate above was ~2612 and the actual
+            paid was 2577, slightly below the estimate, as expected. The demo shows this captured value
+            rather than executing on every visit.
           </p>
-          <CostPreview paid={SAMPLE_PAID} />
+          <CostPreview paid={CAPTURED_PAID} />
         </section>
       </ThemeProvider>
 
       <section style={{ borderTop: '1px solid rgba(15,23,42,0.10)', paddingTop: 20 }}>
         <h2 style={{ fontSize: 14, fontWeight: 600, margin: '0 0 8px' }}>Integrating cost visibility</h2>
         <p style={{ color: '#475569', fontSize: 13, lineHeight: 1.6, margin: '0 0 10px' }}>
-          PartyLayer does not own ledger transport — your dApp supplies a cost-fetcher (calling your
+          PartyLayer does not own ledger transport: your dApp supplies a cost-fetcher (calling your
           validator&apos;s <code>/v2/interactive-submission/prepare</code>, typically via your own
           backend), and PartyLayer provides the types, the TanStack Query wrapper, and the UI:
         </p>
