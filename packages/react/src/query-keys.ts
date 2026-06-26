@@ -40,6 +40,14 @@ export const partyLayerKeys = {
 
   /** Query: registry status. */
   registryStatus: () => [...partyLayerKeys.all, 'registryStatus'] as const,
+
+  /**
+   * Query: a transaction cost estimate. Optional opaque params (e.g. an `input`
+   * identifying the transaction) are folded into the key so different
+   * transactions cache independently.
+   */
+  transactionCostEstimate: (params?: { input?: unknown }) =>
+    [...partyLayerKeys.all, 'transactionCostEstimate', params ?? {}] as const,
 } as const;
 
 export type PartyLayerKeys = typeof partyLayerKeys;

@@ -58,3 +58,12 @@ export type {
   UseSubmitTransactionParameters,
   UseSubmitTransactionReturnType,
 } from './use-submit-transaction';
+
+export { useTransactionCostEstimate } from './use-transaction-cost-estimate';
+export type {
+  UseTransactionCostEstimateParameters,
+  UseTransactionCostEstimateReturnType,
+} from './use-transaction-cost-estimate';
+
+// Re-export the standard cost types from core for convenience.
+export type { CostEstimation, TrafficCost } from '@partylayer/core';
