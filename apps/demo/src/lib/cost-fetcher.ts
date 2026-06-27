@@ -1,7 +1,7 @@
 /**
  * The dApp's cost-fetcher for the CIP-0104 demo.
  *
- * Model 2: PartyLayer does not own ledger transport — the dApp supplies this
+ * Model 2: PartyLayer does not own ledger transport. The dApp supplies this
  * fetcher. It POSTs to the backend proxy (/api/cost-estimate), then maps the
  * proxy's int64-as-string cost values through core's `toTrafficCost` into a
  * `CostEstimation`. Pass it to `useTransactionCostEstimate({ estimate })`.
@@ -34,7 +34,7 @@ export async function fetchCostEstimate(signal?: AbortSignal): Promise<CostEstim
       const body = (await res.json()) as { error?: string };
       if (body?.error) message = body.error;
     } catch {
-      // non-JSON error body — keep the status-based message
+      // non-JSON error body, keep the status-based message
     }
     throw new Error(message);
   }

@@ -1,13 +1,13 @@
 /**
- * @partylayer/react v2 — usePaidTrafficCost (TanStack Query query).
+ * @partylayer/react v2: usePaidTrafficCost (TanStack Query query).
  *
  * The post-execution ACTUAL-cost twin of `useTransactionCostEstimate`.
  *
- * MODEL 2 — PartyLayer does NOT own ledger transport. Unlike `useWallets` (which
+ * MODEL 2: PartyLayer does NOT own ledger transport. Unlike `useWallets` (which
  * wraps `client.listWallets`), this hook does **not** touch the PartyLayer client,
  * does not call `usePartyLayer`, and does not reach any ledger/validator itself.
- * The dApp supplies its OWN fetcher (`fetch`) — typically reading the completion's
- * `paidTrafficCost` from its own validator — and this hook only wraps that fetcher
+ * The dApp supplies its OWN fetcher (`fetch`), typically reading the completion's
+ * `paidTrafficCost` from its own validator, and this hook only wraps that fetcher
  * in `useQuery` and types it with core's `PaidTrafficCost`. That keeps it
  * ledgerApi-independent, wallet-agnostic, and generic-bridge-compatible: a thin,
  * standard UX layer over a field the dApp already has access to.
@@ -15,7 +15,7 @@
  * `paidTrafficCost` is OPTIONAL (e.g. absent for updates initiated by another
  * participant, or processed before the node served traffic cost on the Ledger
  * API), so the fetcher returns `PaidTrafficCost | null` and `paidTrafficCost` may
- * be `null` — that is a successful result, not an error.
+ * be `null`. That is a successful result, not an error.
  *
  * `input` is an opaque identifier for the transaction whose actual cost this is;
  * it is folded into the `queryKey` so different transactions cache independently.
@@ -62,7 +62,7 @@ export function usePaidTrafficCost(
   const result = useQuery<PaidTrafficCost | null, Error>({
     ...query,
     queryKey: partyLayerKeys.paidTrafficCost({ input }),
-    // queryFn is the dApp's fetcher — PartyLayer does not own ledger transport.
+    // queryFn is the dApp's fetcher. PartyLayer does not own ledger transport.
     queryFn: ({ signal }) => fetch(signal),
   });
 

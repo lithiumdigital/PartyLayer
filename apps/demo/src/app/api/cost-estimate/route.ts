@@ -2,7 +2,7 @@
  * Backend cost-estimate proxy (CIP-0104 reference).
  *
  * The validator's JSON Ledger API is localhost-only on the node, so a browser
- * dApp cannot reach it directly — this server-side route forwards a single
+ * dApp cannot reach it directly. This server-side route forwards a single
  * /v2/interactive-submission/prepare call and returns ONLY the costEstimation.
  *
  * prepare INTERPRETS the transaction and returns the estimate; it does NOT commit
@@ -53,7 +53,7 @@ export async function POST() {
     );
   }
 
-  // CreateCommand of Splice.Amulet:ValidatorRight — the validator party is the
+  // CreateCommand of Splice.Amulet:ValidatorRight: the validator party is the
   // sole signatory, so it prepares with no holdings/scan context. PREPARE only.
   const prepareRequest = {
     commandId: `cost-demo-${Date.now()}`,
@@ -85,7 +85,7 @@ export async function POST() {
   try {
     res = await fetch(`${ledgerUrl.replace(/\/+$/, '')}/v2/interactive-submission/prepare`, {
       method: 'POST',
-      // No Authorization header — the ledger is auth-disabled.
+      // No Authorization header: the ledger is auth-disabled.
       headers: ledgerHeaders,
       body: JSON.stringify(prepareRequest),
       cache: 'no-store',
@@ -120,7 +120,7 @@ function extractCostEstimation(raw: string):
       totalTrafficCostEstimation: string;
     }
   | null {
-  // costEstimation is a flat object (timestamp + three integers) — no nested braces.
+  // costEstimation is a flat object (timestamp + three integers), no nested braces.
   const block = raw.match(/"costEstimation"\s*:\s*\{([^}]*)\}/);
   if (!block) return null;
   const body = block[1];

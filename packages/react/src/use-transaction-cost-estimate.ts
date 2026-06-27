@@ -1,18 +1,18 @@
 /**
- * @partylayer/react v2 — useTransactionCostEstimate (TanStack Query query).
+ * @partylayer/react v2: useTransactionCostEstimate (TanStack Query query).
  *
- * MODEL 2 — PartyLayer does NOT own ledger transport. Unlike `useWallets` (which
+ * MODEL 2: PartyLayer does NOT own ledger transport. Unlike `useWallets` (which
  * wraps `client.listWallets`), this hook does **not** touch the PartyLayer client,
  * does not call `usePartyLayer`, and does not reach any ledger/validator itself.
- * The dApp supplies its OWN cost-fetcher (`estimate`) — typically a call to its
- * validator's `/v2/interactive-submission/prepare` — and this hook only wraps that
+ * The dApp supplies its OWN cost-fetcher (`estimate`), typically a call to its
+ * validator's `/v2/interactive-submission/prepare`, and this hook only wraps that
  * fetcher in `useQuery` and types it with core's `CostEstimation`. That keeps it
  * ledgerApi-independent, wallet-agnostic, and generic-bridge-compatible: a thin,
  * standard UX layer over a field the dApp already has access to.
  *
  * `costEstimation` is OPTIONAL on the prepare response (it may be disabled or
  * absent), so the fetcher returns `CostEstimation | null` and `costEstimate` may
- * be `null` — that is a successful result, not an error.
+ * be `null`. That is a successful result, not an error.
  *
  * `input` is an opaque identifier for the transaction being estimated; it is
  * folded into the `queryKey` so different transactions cache independently. The
@@ -59,7 +59,7 @@ export function useTransactionCostEstimate(
   const result = useQuery<CostEstimation | null, Error>({
     ...query,
     queryKey: partyLayerKeys.transactionCostEstimate({ input }),
-    // queryFn is the dApp's fetcher — PartyLayer does not own ledger transport.
+    // queryFn is the dApp's fetcher. PartyLayer does not own ledger transport.
     queryFn: ({ signal }) => estimate(signal),
   });
 
