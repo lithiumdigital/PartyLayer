@@ -42,3 +42,12 @@ export {
   type UsePaidTrafficCostParameters,
   type UsePaidTrafficCostReturnType,
 } from './use-transaction-cost';
+
+// DAML read composable (Model 2, vue-query): the Vue mirror of React's
+// useDamlContract. Generic over T, schema-agnostic, opaque reactive key; the
+// contract alias is a ComputedRef. The read counterpart to useChoice (coming next).
+export {
+  useDamlContract,
+  type UseDamlContractParameters,
+  type UseDamlContractReturnType,
+} from './use-daml-contract';
