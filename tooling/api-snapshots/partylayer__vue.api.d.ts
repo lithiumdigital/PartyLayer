@@ -14,19 +14,21 @@ declare function injectSessionStore(): SessionStore | null;
 declare function provideSessionStore(config: ProvideSessionConfig): SessionStore;
 declare function useAccount(): UseAccountReturn;
 declare function useAccountEffect(parameters?: UseAccountEffectParameters): void;
+declare function useChoice<R, V>(parameters: UseChoiceParameters<R, V>): UseChoiceReturnType<R, V>;
 declare function useDamlContract<T>(parameters: UseDamlContractParameters<T>): UseDamlContractReturnType<T>;
 declare function usePaidTrafficCost(parameters: UsePaidTrafficCostParameters): UsePaidTrafficCostReturnType;
 declare function usePartyState(): UsePartyStateReturn;
 declare function useSession(): UseSessionReturn;
 declare function useTransactionCostEstimate(parameters: UseTransactionCostEstimateParameters): UseTransactionCostEstimateReturnType;
-export { type PartyLayerKeys, type ProvideSessionConfig, SESSION_STORE_KEY, type SessionChain, type UseAccountEffectParameters, type UseAccountReturn, type UseDamlContractParameters, type UseDamlContractReturnType, type UsePaidTrafficCostParameters, type UsePaidTrafficCostReturnType, type UsePartyStateReturn, type UseSessionReturn, type UseTransactionCostEstimateParameters, type UseTransactionCostEstimateReturnType, createPartyLayerSession, injectSessionStore, partyLayerKeys, provideSessionStore, useAccount, useAccountEffect, useDamlContract, usePaidTrafficCost, usePartyState, useSession, useTransactionCostEstimate };
+export { type PartyLayerKeys, type ProvideSessionConfig, SESSION_STORE_KEY, type SessionChain, type UseAccountEffectParameters, type UseAccountReturn, type UseChoiceParameters, type UseChoiceReturnType, type UseDamlContractParameters, type UseDamlContractReturnType, type UsePaidTrafficCostParameters, type UsePaidTrafficCostReturnType, type UsePartyStateReturn, type UseSessionReturn, type UseTransactionCostEstimateParameters, type UseTransactionCostEstimateReturnType, createPartyLayerSession, injectSessionStore, partyLayerKeys, provideSessionStore, useAccount, useAccountEffect, useChoice, useDamlContract, usePaidTrafficCost, usePartyState, useSession, useTransactionCostEstimate };
 import { CIP0103Provider, PaidTrafficCost, CostEstimation } from '@partylayer/core';
 import { InjectionKey, Plugin, ComputedRef, MaybeRefOrGetter } from 'vue';
 import { SessionStore, SessionStoreOptions, SessionAccount, SessionStatus, SessionState, SessionEvent } from '@partylayer/session';
-import { UseQueryOptions, UseQueryReturnType } from '@tanstack/vue-query';
+import { UseQueryOptions, UseQueryReturnType, UseMutationOptions, UseMutationReturnType } from '@tanstack/vue-query';
 interface SessionChain { id: string; }
 interface UseAccountEffectParameters { onConnect?: (data: { account: SessionAccount | null; accounts: readonly SessionAccount[]; networkId: string | null; }) => void; onDisconnect?: () => void; onPartyChanged?: (data: { previous: string | null; current: string | null; }) => void; }
 interface UseAccountReturn { party: ComputedRef<string | null>; address: ComputedRef<string | null>; account: ComputedRef<SessionAccount | null>; accounts: ComputedRef<readonly SessionAccount[]>; status: ComputedRef<SessionStatus>; isConnected: ComputedRef<boolean>; isConnecting: ComputedRef<boolean>; isReconnecting: ComputedRef<boolean>; isDisconnected: ComputedRef<boolean>; networkId: ComputedRef<string | null>; chain: ComputedRef<SessionChain | null>; lastError: ComputedRef<Error | null>; }
+interface UseChoiceParameters<R, V> { exercise: (variables: V, signal?: AbortSignal) => Promise<R>; mutation?: Omit<UseMutationOptions<R, Error, V>, 'mutationFn' | 'mutationKey'>; }
 interface UseDamlContractParameters<T> { read: (signal?: AbortSignal) => Promise<T | null>; key?: MaybeRefOrGetter<unknown>; query?: Omit<UseQueryOptions<T | null, Error>, 'queryKey' | 'queryFn'>; }
 interface UsePaidTrafficCostParameters { fetch: (signal?: AbortSignal) => Promise<PaidTrafficCost | null>; input?: MaybeRefOrGetter<unknown>; query?: Omit<UseQueryOptions<PaidTrafficCost | null, Error>, 'queryKey' | 'queryFn'>; }
 interface UsePartyStateReturn { party: ComputedRef<string | null>; account: ComputedRef<SessionAccount | null>; accounts: ComputedRef<readonly SessionAccount[]>; status: ComputedRef<SessionStatus>; isConnected: ComputedRef<boolean>; isDisconnected: ComputedRef<boolean>; networkId: ComputedRef<string | null>; lastError: ComputedRef<Error | null>; }
@@ -34,6 +36,7 @@ interface UseSessionReturn { status: ComputedRef<SessionStatus>; account: Comput
 interface UseTransactionCostEstimateParameters { estimate: (signal?: AbortSignal) => Promise<CostEstimation | null>; input?: MaybeRefOrGetter<unknown>; query?: Omit<UseQueryOptions<CostEstimation | null, Error>, 'queryKey' | 'queryFn'>; }
 type PartyLayerKeys = typeof partyLayerKeys;
 type ProvideSessionConfig = SessionStore | ({ provider: CIP0103Provider; } & Partial<SessionStoreOptions>);
+type UseChoiceReturnType<R, V> = UseMutationReturnType<R, Error, V, unknown> & { exerciseChoice: UseMutationReturnType<R, Error, V, unknown>['mutate']; exerciseChoiceAsync: UseMutationReturnType<R, Error, V, unknown>['mutateAsync']; };
 type UseDamlContractReturnType<T> = UseQueryReturnType<T | null, Error> & { contract: ComputedRef<T | null | undefined>; };
 type UsePaidTrafficCostReturnType = UseQueryReturnType<PaidTrafficCost | null, Error> & { paidTrafficCost: ComputedRef<PaidTrafficCost | null | undefined>; };
 type UseTransactionCostEstimateReturnType = UseQueryReturnType<CostEstimation | null, Error> & { costEstimate: ComputedRef<CostEstimation | null | undefined>; };
