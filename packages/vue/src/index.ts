@@ -51,3 +51,12 @@ export {
   type UseDamlContractParameters,
   type UseDamlContractReturnType,
 } from './use-daml-contract';
+
+// DAML write composable (Model 2, vue-query useMutation): the Vue mirror of React's
+// useChoice. Generic over R/V, schema-agnostic; exerciseChoice/exerciseChoiceAsync
+// alias mutate/mutateAsync. The write counterpart to useDamlContract.
+export {
+  useChoice,
+  type UseChoiceParameters,
+  type UseChoiceReturnType,
+} from './use-choice';
