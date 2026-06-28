@@ -704,6 +704,9 @@ importers:
         specifier: workspace:^
         version: link:../session
     devDependencies:
+      '@partylayer/conformance-runner':
+        specifier: workspace:^
+        version: link:../conformance-runner
       '@partylayer/testing':
         specifier: workspace:^
         version: link:../testing
