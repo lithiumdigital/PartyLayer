@@ -95,6 +95,20 @@ This builds all packages and publishes to npm (requires authentication).
 
 Registry updates are separate from package releases. See [Registry Operations](./registry-ops.md).
 
+## Scaffold Templates
+
+The `create-partylayer-app` templates (in `packages/create-partylayer-app/templates/*`)
+pin the `@partylayer/*` versions a scaffolded app installs. A major bump (or, for a 0.x
+package, a breaking minor) of `@partylayer/react`, `@partylayer/vue`, `@partylayer/sdk`,
+`@partylayer/session`, or `@partylayer/core` MUST update the matching pins in each
+template's `_package.json`, or new users scaffold a version behind. When a package gains a
+new required peer (for example react v2 adding `@tanstack/react-query`), add it to the
+relevant templates too.
+
+This is enforced by `pnpm gate:templates` (part of the main gate): it fails when a
+template's range cannot resolve to the current workspace version. If the gate fails after
+a version bump, update the template pins in the same change.
+
 ## Pre-Release Checklist
 
 - [ ] All tests pass (`pnpm test`)
@@ -102,6 +116,7 @@ Registry updates are separate from package releases. See [Registry Operations](.
 - [ ] Lint passes (`pnpm lint`)
 - [ ] Type check passes (`pnpm typecheck`)
 - [ ] Registry signatures verified (`pnpm registry:verify`)
+- [ ] Scaffold templates up to date (`pnpm gate:templates`)
 - [ ] Changesets created for all changes
 - [ ] CHANGELOG.md reviewed
 - [ ] Documentation updated if needed
