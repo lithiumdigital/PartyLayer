@@ -15,7 +15,7 @@ A minimal but real dApp demonstrating PartyLayer integration using only the publ
 
 1. **Registry Server Running**
    ```bash
-   # From wallet-sdk root
+   # From PartyLayer root
    cd apps/registry-server
    pnpm build
    pnpm start
@@ -30,7 +30,7 @@ A minimal but real dApp demonstrating PartyLayer integration using only the publ
 ## Installation
 
 ```bash
-# From wallet-sdk root
+# From PartyLayer root
 cd examples/test-dapp
 pnpm install
 ```
@@ -214,7 +214,7 @@ export const client = createPartyLayer({
 
 ### Error: "Module not found: @partylayer/sdk"
 **Cause:** Packages not installed  
-**Fix:** Run `pnpm install` from wallet-sdk root (workspace setup)
+**Fix:** Run `pnpm install` from PartyLayer root (workspace setup)
 
 ### Registry Status: "Not Verified"
 **Cause:** Registry signature invalid or missing  

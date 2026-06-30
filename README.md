@@ -722,7 +722,7 @@ pnpm clean
 ### Project Structure
 
 ```
-wallet-sdk/
+PartyLayer/
 ├── packages/
 │   ├── core/              # Core types, errors, and CIP-0103 type definitions
 │   ├── sdk/               # Main SDK implementation

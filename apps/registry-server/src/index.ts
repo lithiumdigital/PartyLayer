@@ -22,8 +22,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // Detect if running from src/ (tsx dev) or dist/ (compiled)
-// From src/index.ts: src -> registry-server -> apps -> wallet-sdk (3 levels)
-// From dist/index.js: dist -> registry-server -> apps -> wallet-sdk (3 levels, same)
+// From src/index.ts: src -> registry-server -> apps -> PartyLayer (3 levels)
+// From dist/index.js: dist -> registry-server -> apps -> PartyLayer (3 levels, same)
 const ROOT_DIR = resolve(__dirname, '../../..');
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
