@@ -15,14 +15,14 @@ const sessionStore = useSessionStore();
 <template>
   <main class="app">
     <h1>{{PROJECT_NAME}}</h1>
-    <p class="subtitle">A PartyLayer dApp on Canton — Nuxt 3 + Pinia, SSR session.</p>
+    <p class="subtitle">A PartyLayer dApp on Canton: Nuxt 3 + Pinia, SSR session.</p>
 
     <!-- SERVER-RENDERED party from the cookie (initial HTML, no flash) -->
     <p v-if="serverParty" class="session">
       Connected as <code data-testid="server-party">{{ truncateParty(serverParty) }}</code>
     </p>
     <p v-else class="session" data-testid="server-cta">
-      Not connected — connect a wallet to continue.
+      Not connected: connect a wallet to continue.
     </p>
 
     <!-- Pinia-backed interactive session (reads the Pinia store, not the composables) -->

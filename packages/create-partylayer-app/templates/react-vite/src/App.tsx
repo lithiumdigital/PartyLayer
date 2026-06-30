@@ -12,7 +12,7 @@ export default function App() {
     <PartyLayerKit network="devnet" appName="{{PROJECT_NAME}}">
       <main className="app">
         <h1>{{PROJECT_NAME}}</h1>
-        <p className="subtitle">A PartyLayer dApp on Canton — connect any verified wallet.</p>
+        <p className="subtitle">A PartyLayer dApp on Canton: connect any verified wallet.</p>
         <ConnectButton />
         <SessionPanel />
       </main>
