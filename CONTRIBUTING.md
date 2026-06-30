@@ -42,8 +42,8 @@ By participating in this project, you agree to maintain a respectful and inclusi
 2. Clone your fork:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/wallet-sdk.git
-cd wallet-sdk
+git clone https://github.com/YOUR_USERNAME/PartyLayer.git
+cd PartyLayer
 ```
 
 3. Add the upstream remote:

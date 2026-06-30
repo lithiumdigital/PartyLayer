@@ -50,7 +50,7 @@ into the demo's main bundle.
 
 ### Installation
 
-From the root of the wallet-sdk repository:
+From the root of the PartyLayer repository:
 
 ```bash
 # Install dependencies
