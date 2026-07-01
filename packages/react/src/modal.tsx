@@ -435,6 +435,12 @@ export function WalletModal({
   const walletOrder = propWalletOrder ?? contextWalletOrder;
 
   const [view, setView] = useState<ModalView>('list');
+  // `view` is the logical state the connect flow drives. `displayedView` is what is
+  // actually rendered; on a view change we play an exit on the old displayed view,
+  // then swap. This is display-only and never gates the connect logic (which reads
+  // `view`), so the connect flow / hooks / QR observer are untouched.
+  const [displayedView, setDisplayedView] = useState<ModalView>('list');
+  const [viewExiting, setViewExiting] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState<WalletInfo | null>(null);
   const [mismatchInfo, setMismatchInfo] = useState<{ expected: string; actual: string } | null>(null);
   const [closing, setClosing] = useState(false);
@@ -465,6 +471,8 @@ export function WalletModal({
   useEffect(() => {
     if (isOpen) {
       setView('list');
+      setDisplayedView('list'); // start on the list with no transition
+      setViewExiting(false);
       setSelectedWallet(null);
       setClosing(false);
       setConnectPhase('default');
@@ -473,6 +481,27 @@ export function WalletModal({
       cleanupConnectResources();
     }
   }, [isOpen, cleanupConnectResources]);
+
+  // Cross-fade between views: when `view` changes, exit the currently-displayed
+  // view, then swap. Skipped while closing (the panel exit handles that) and under
+  // reduced motion (instant swap). Display-only: the connect logic reads `view`.
+  useEffect(() => {
+    if (closing || view === displayedView) return;
+    const reduce =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) {
+      setDisplayedView(view);
+      return;
+    }
+    setViewExiting(true);
+    const t = setTimeout(() => {
+      setDisplayedView(view);
+      setViewExiting(false);
+    }, 150);
+    return () => clearTimeout(t);
+  }, [view, displayedView, closing]);
 
   // Cleanup on unmount
   useEffect(() => cleanupConnectResources, [cleanupConnectResources]);
@@ -714,10 +743,11 @@ export function WalletModal({
     justifyContent: 'center',
     zIndex: 10000,
     opacity: closing ? 0 : 1,
-    // Entrance: ramp the dim + blur in (softer open). On close, the animation is
-    // removed and the inline opacity:0 + transition fades it back out.
-    animation: !closing ? 'pl-backdrop-enter 220ms ease forwards' : undefined,
-    transition: 'opacity 150ms',
+    // Entrance ramps the dim + blur in; close ramps them back out (symmetric).
+    // Both are 150ms so the close animation fits the 150ms unmount in handleClose.
+    animation: closing
+      ? 'pl-backdrop-exit 150ms ease forwards'
+      : 'pl-backdrop-enter 220ms ease forwards',
   };
 
   const panelStyle: React.CSSProperties = {
@@ -733,11 +763,12 @@ export function WalletModal({
       ? '0 8px 32px rgba(0,0,0,0.5), 0 24px 80px rgba(0,0,0,0.4)'
       : '0 8px 32px rgba(15,23,42,0.12), 0 24px 80px rgba(15,23,42,0.08)',
     border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(15,23,42,0.06)'}`,
-    // Tasteful, subtle overshoot easing (premium, not bouncy).
-    animation: !closing ? 'pl-panel-enter 260ms cubic-bezier(0.34, 1.3, 0.64, 1) forwards' : undefined,
-    transform: closing ? 'scale(0.95)' : undefined,
-    opacity: closing ? 0 : undefined,
-    transition: closing ? 'transform 150ms, opacity 150ms' : undefined,
+    // Open: tasteful, subtle overshoot (premium, not bouncy). Close: mirror it with
+    // a scale-down + fade so opening and closing feel symmetric (150ms, fits the
+    // 150ms unmount in handleClose).
+    animation: closing
+      ? 'pl-panel-exit 150ms cubic-bezier(0.4, 0, 0.2, 1) forwards'
+      : 'pl-panel-enter 260ms cubic-bezier(0.34, 1.18, 0.64, 1) forwards',
   };
 
   const headerStyle: React.CSSProperties = {
@@ -887,8 +918,18 @@ export function WalletModal({
         </span>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontWeight: 600, fontSize: '15px', color: theme.colors.text }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+            <span style={{
+              fontWeight: 600,
+              fontSize: '15px',
+              color: theme.colors.text,
+              // Truncate a long name with an ellipsis so the badge stays on one line
+              // (prevents the awkward two-line wrap at narrow widths).
+              minWidth: 0,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}>
               {wallet.name}
             </span>
             {isNative && (
@@ -907,6 +948,8 @@ export function WalletModal({
                   fontWeight: 600,
                   letterSpacing: '0.3px',
                   lineHeight: '14px',
+                  flexShrink: 0,
+                  whiteSpace: 'nowrap',
                   cursor: wallet.cip0103?.evidence ? 'help' : 'default',
                 }}
               >
@@ -924,6 +967,8 @@ export function WalletModal({
                 fontWeight: 600,
                 letterSpacing: '0.3px',
                 lineHeight: '14px',
+                flexShrink: 0,
+                whiteSpace: 'nowrap',
               }}>
                 Beta
               </span>
@@ -1149,14 +1194,19 @@ export function WalletModal({
             height: '80px',
             margin: '0 auto 24px',
           }}>
-            {/* Soft breathing glow (behind the icon + spinner). */}
+            {/* Soft, diffuse breathing halo (behind the icon + spinner). Much larger
+                than the icon plate + heavy blur + a radial gradient, so it reads as a
+                gentle glow rather than a hard rim. Peak opacity is theme-aware
+                (lower in dark mode) via --pl-glow-peak, so it never dominates. */}
             <div className="pl-pulse-ring" style={{
               position: 'absolute',
-              inset: '-10px',
-              borderRadius: '20px',
-              background: theme.colors.primary,
-              filter: 'blur(8px)',
+              inset: '-42px',
+              borderRadius: '50%',
+              background: `radial-gradient(circle at center, ${theme.colors.primary} 0%, transparent 62%)`,
+              filter: 'blur(24px)',
+              ['--pl-glow-peak' as string]: isDark ? '0.12' : '0.20',
               zIndex: 0,
+              pointerEvents: 'none',
             }} />
             <div style={{
               position: 'absolute',
@@ -1228,14 +1278,19 @@ export function WalletModal({
             height: '80px',
             margin: '0 auto 24px',
           }}>
-            {/* Soft breathing glow (behind the icon + spinner). */}
+            {/* Soft, diffuse breathing halo (behind the icon + spinner). Much larger
+                than the icon plate + heavy blur + a radial gradient, so it reads as a
+                gentle glow rather than a hard rim. Peak opacity is theme-aware
+                (lower in dark mode) via --pl-glow-peak, so it never dominates. */}
             <div className="pl-pulse-ring" style={{
               position: 'absolute',
-              inset: '-10px',
-              borderRadius: '20px',
-              background: theme.colors.primary,
-              filter: 'blur(8px)',
+              inset: '-42px',
+              borderRadius: '50%',
+              background: `radial-gradient(circle at center, ${theme.colors.primary} 0%, transparent 62%)`,
+              filter: 'blur(24px)',
+              ['--pl-glow-peak' as string]: isDark ? '0.12' : '0.20',
               zIndex: 0,
+              pointerEvents: 'none',
             }} />
             <div style={{
               position: 'absolute',
@@ -1926,17 +1981,18 @@ export function WalletModal({
         style={panelStyle}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Keyed by `view` so each view change remounts this container and
-            re-triggers the `pl-view` entrance (cross-fade + slide). The connect
-            flow, hooks, and QR observer live at the component level, not inside
-            these view renders, so remounting the container is visual-only. */}
-        <div key={view} className="pl-view">
-          {view === 'list' && renderListView()}
-          {view === 'connecting' && renderConnectingView()}
-          {view === 'success' && renderSuccessView()}
-          {view === 'error' && renderErrorView()}
-          {view === 'network-mismatch' && renderNetworkMismatchView()}
-          {view === 'not-installed' && renderNotInstalledView()}
+        {/* Keyed by `displayedView` so a swap remounts this container and plays the
+            `pl-view` entrance; while a view change is pending, the outgoing view
+            wears `pl-view-exit` (fade + rise out) for a real cross-fade. The connect
+            flow, hooks, and QR observer live at the component level, not inside these
+            view renders, so this two-state display is visual-only. */}
+        <div key={displayedView} className={viewExiting ? 'pl-view pl-view-exit' : 'pl-view'}>
+          {displayedView === 'list' && renderListView()}
+          {displayedView === 'connecting' && renderConnectingView()}
+          {displayedView === 'success' && renderSuccessView()}
+          {displayedView === 'error' && renderErrorView()}
+          {displayedView === 'network-mismatch' && renderNetworkMismatchView()}
+          {displayedView === 'not-installed' && renderNotInstalledView()}
         </div>
       </div>
 
@@ -1954,20 +2010,36 @@ export function WalletModal({
           100% { transform: scale(1); opacity: 1; }
         }
 
-        /* Backdrop: ramp the dim + blur in (softer open). */
+        /* Backdrop: ramp the dim + blur in (softer open) and back out on close. */
         @keyframes pl-backdrop-enter {
           from { opacity: 0; backdrop-filter: blur(0); -webkit-backdrop-filter: blur(0); }
           to { opacity: 1; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
         }
+        @keyframes pl-backdrop-exit {
+          from { opacity: 1; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+          to { opacity: 0; backdrop-filter: blur(0); -webkit-backdrop-filter: blur(0); }
+        }
+        /* Panel close mirrors the open (scale down + fade), so it feels symmetric. */
+        @keyframes pl-panel-exit {
+          from { opacity: 1; transform: scale(1) translateY(0); }
+          to { opacity: 0; transform: scale(0.95) translateY(4px); }
+        }
 
-        /* View transition: a calm cross-fade + slight upward slide. The view
-           container is keyed by the active view, so a view change remounts it
-           and re-triggers this entrance (RainbowKit-calm, not flashy). */
+        /* View transition: a genuine cross-fade. The displayed view is tracked in
+           state; on a view change the OUTGOING view gets .pl-view-exit (fade + rise
+           out), then it is swapped and the incoming view plays .pl-view (enter). The
+           connect flow / hooks / QR observer live at component level, never inside
+           the keyed view, so this is visual-only. */
         @keyframes pl-view-enter {
-          from { opacity: 0; transform: translateY(10px); }
+          from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        .pl-view { animation: pl-view-enter 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+        @keyframes pl-view-exit {
+          from { opacity: 1; transform: translateY(0); }
+          to { opacity: 0; transform: translateY(-6px); }
+        }
+        .pl-view { animation: pl-view-enter 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+        .pl-view-exit { animation: pl-view-exit 150ms cubic-bezier(0.4, 0, 1, 1) both; }
 
         /* Wallet list: staggered fade + rise per row (delay set inline, capped). */
         @keyframes pl-list-item-enter {
@@ -1991,21 +2063,24 @@ export function WalletModal({
            handlers set on the row (otherwise the inline transform would win). */
         .pl-wallet-row:active { transform: translateY(0) scale(0.985) !important; }
 
-        /* Connecting: a soft breathing glow behind the wallet icon. */
+        /* Connecting: a soft, diffuse breathing halo behind the wallet icon. The
+           element is a large blurred radial gradient (see the inline style); this
+           keyframe just breathes its scale + opacity. Peak opacity is theme-aware
+           via --pl-glow-peak (lower in dark mode) so it never dominates. */
         @keyframes pl-pulse-ring {
-          0%   { transform: scale(0.9); opacity: 0.5; }
-          70%  { transform: scale(1.28); opacity: 0; }
-          100% { transform: scale(1.28); opacity: 0; }
+          0%   { transform: scale(0.82); opacity: var(--pl-glow-peak, 0.18); }
+          70%  { transform: scale(1.12); opacity: 0; }
+          100% { transform: scale(1.12); opacity: 0; }
         }
-        .pl-pulse-ring { animation: pl-pulse-ring 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        .pl-pulse-ring { animation: pl-pulse-ring 2.4s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
 
         /* Success: the badge pops, then the checkmark stroke draws in. */
         @keyframes pl-badge-pop {
           0%   { transform: scale(0); }
-          60%  { transform: scale(1.15); }
+          60%  { transform: scale(1.12); }
           100% { transform: scale(1); }
         }
-        .pl-badge-pop { animation: pl-badge-pop 360ms cubic-bezier(0.34, 1.4, 0.64, 1) 140ms both; }
+        .pl-badge-pop { animation: pl-badge-pop 360ms cubic-bezier(0.34, 1.3, 0.64, 1) 140ms both; }
         @keyframes pl-check-draw { to { stroke-dashoffset: 0; } }
         .pl-check-draw {
           stroke-dasharray: 26;
@@ -2017,13 +2092,15 @@ export function WalletModal({
            motion (view slide, stagger, pulse, draw, panel/backdrop entrance) so the
            UI settles instantly. The spinner is kept (it conveys progress). */
         @media (prefers-reduced-motion: reduce) {
-          .pl-view, .pl-stagger-item, .pl-pulse-ring, .pl-badge-pop, .pl-check-draw,
-          .pl-overlay, .pl-panel, .pl-success-anim {
+          .pl-view, .pl-view-exit, .pl-stagger-item, .pl-pulse-ring, .pl-badge-pop,
+          .pl-check-draw, .pl-overlay, .pl-panel, .pl-success-anim {
             animation: none !important;
             transition: none !important;
           }
           .pl-wallet-row-icon, .pl-wallet-row-arrow { transition: none !important; }
           .pl-check-draw { stroke-dashoffset: 0 !important; }
+          /* The decorative connecting halo is purely motion; hide it entirely. */
+          .pl-pulse-ring { opacity: 0 !important; }
         }
         /* Hide Console SDK's injected QR/connector modal, we extract its
            content and render in our own modal. Using off-screen positioning
