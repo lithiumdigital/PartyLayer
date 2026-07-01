@@ -1206,7 +1206,11 @@ export function WalletModal({
               position: 'absolute',
               inset: '-42px',
               borderRadius: '50%',
-              background: `radial-gradient(circle at center, ${theme.colors.primary} 0%, transparent 62%)`,
+              // Color follows the active accent (theme.colors.primary), set as a
+              // per-element CSS variable so it is scoped to THIS modal (two themed
+              // instances never share it) and the gradient reads it below.
+              ['--pl-glow-color' as string]: theme.colors.primary,
+              background: 'radial-gradient(circle at center, var(--pl-glow-color) 0%, transparent 62%)',
               filter: 'blur(24px)',
               ['--pl-glow-peak' as string]: isDark ? '0.12' : '0.20',
               zIndex: 0,
@@ -1290,7 +1294,11 @@ export function WalletModal({
               position: 'absolute',
               inset: '-42px',
               borderRadius: '50%',
-              background: `radial-gradient(circle at center, ${theme.colors.primary} 0%, transparent 62%)`,
+              // Color follows the active accent (theme.colors.primary), set as a
+              // per-element CSS variable so it is scoped to THIS modal (two themed
+              // instances never share it) and the gradient reads it below.
+              ['--pl-glow-color' as string]: theme.colors.primary,
+              background: 'radial-gradient(circle at center, var(--pl-glow-color) 0%, transparent 62%)',
               filter: 'blur(24px)',
               ['--pl-glow-peak' as string]: isDark ? '0.12' : '0.20',
               zIndex: 0,
