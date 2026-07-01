@@ -11,6 +11,7 @@ import {
   lightTheme,
   darkTheme,
   accentPresets,
+  PartyAvatar,
 } from '@partylayer/react';
 import { useBreakpoint, responsive } from '../hooks/useBreakpoint';
 import { buildDemoAdapters } from '../../lib/canton-demo-adapter';
@@ -733,6 +734,7 @@ export default function KitDemoPage() {
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>('light');
   const [accent, setAccent] = useState<'default' | 'blue' | 'green' | 'purple' | 'orange' | 'pink' | 'red'>('default');
   const [showAttr, setShowAttr] = useState(true);
+  const [accountStatus, setAccountStatus] = useState<'full' | 'avatar' | 'address'>('full');
   const [systemDark, setSystemDark] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -850,7 +852,7 @@ export default function KitDemoPage() {
                   ))}
                 </div>
 
-                <ConnectButton />
+                <ConnectButton accountStatus={accountStatus} />
               </div>
             </nav>
 
@@ -911,6 +913,47 @@ export default function KitDemoPage() {
                 {accent === 'default'
                   ? `<PartyLayerKit showAttribution={${showAttr}}>`
                   : `theme={darkTheme({ ...accentPresets.${accent} })}`}
+              </span>
+            </div>
+
+            {/* Connected-button avatar showcase: accountStatus control + a preview of
+                the deterministic avatar across sample party ids. Connect a wallet
+                above to see the real connected button (with the avatar + dropdown). */}
+            <div style={{
+              display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px',
+              padding: '14px 16px', marginTop: '10px',
+              borderRadius: '12px', border: `1px solid ${c.border}`, backgroundColor: c.muted,
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: c.fg }}>accountStatus</span>
+              <div style={{ display: 'inline-flex', borderRadius: '8px', overflow: 'hidden', border: `1px solid ${c.border}` }}>
+                {(['full', 'avatar', 'address'] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setAccountStatus(s)}
+                    style={{
+                      padding: '6px 12px', fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                      border: 'none', fontFamily: font,
+                      background: accountStatus === s ? c.brand500 : c.bg,
+                      color: accountStatus === s ? '#0B0F1A' : c.fg,
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+
+              <span style={{ fontSize: '12px', color: c.slate500 }}>deterministic avatars:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {['party-alice::1220ab', 'party-bob::99f7c2', 'party-carol::5e3d10', 'party-dave::77aa01'].map((id) => (
+                  <div key={id} title={id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                    <PartyAvatar id={id} size={28} />
+                    <span style={{ fontSize: '10px', color: c.slate500, fontFamily: 'ui-monospace, monospace' }}>{id.split('::')[0].replace('party-', '')}</span>
+                  </div>
+                ))}
+              </div>
+
+              <span style={{ fontSize: '12px', color: c.slate500, marginLeft: 'auto' }}>
+                Connect above to see the connected button
               </span>
             </div>
 

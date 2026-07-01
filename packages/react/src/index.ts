@@ -12,8 +12,8 @@ export { PartyLayerKit, useWalletIcons, resolveWalletIcon } from './kit';
 export type { PartyLayerKitProps, WalletIconMap } from './kit';
 
 // ConnectButton: RainbowKit-style connection button
-export { ConnectButton, truncatePartyId } from './connect-button';
-export type { ConnectButtonProps } from './connect-button';
+export { ConnectButton, truncatePartyId, PartyAvatar } from './connect-button';
+export type { ConnectButtonProps, PartyAvatarProps } from './connect-button';
 
 // CostPreview: presentational traffic-cost panel (dApp passes cost data as props)
 export { CostPreview } from './cost-preview';
