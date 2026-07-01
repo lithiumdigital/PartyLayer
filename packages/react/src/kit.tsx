@@ -16,7 +16,7 @@ import type { PartyLayerClient, WalletAdapter, AdapterClass, OfficialProviderAda
 import type { SessionStoreOptions } from '@partylayer/session';
 import { PartyLayerProvider } from './context';
 import { ThemeProvider } from './theme';
-import type { PartyLayerTheme } from './theme';
+import type { ThemeInput } from './theme';
 
 // ─── Wallet Icons Context ─────────────────────────────────────────────────────
 
@@ -96,8 +96,12 @@ export interface PartyLayerKitProps {
     | OfficialProviderAdapter
     | OfficialAdapterFactory
   )[];
-  /** Theme preset or custom theme object (default: 'light') */
-  theme?: 'light' | 'dark' | 'auto' | PartyLayerTheme;
+  /**
+   * Theme: a preset ('light' | 'dark' | 'auto'), a custom `PartyLayerTheme` object,
+   * a callable theme result (`darkTheme({ accentColor, borderRadius, ... })`), or a
+   * dynamic `{ lightMode, darkMode }` that follows the OS preference. Default: 'light'.
+   */
+  theme?: ThemeInput;
   /** Custom wallet icon URLs by walletId */
   walletIcons?: WalletIconMap;
   /**

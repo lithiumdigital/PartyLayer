@@ -20,8 +20,8 @@ export { CostPreview } from './cost-preview';
 export type { CostPreviewProps } from './cost-preview';
 
 // Theme system
-export { ThemeProvider, useTheme, lightTheme, darkTheme } from './theme';
-export type { PartyLayerTheme } from './theme';
+export { ThemeProvider, useTheme, lightTheme, darkTheme, createTheme, accentPresets } from './theme';
+export type { PartyLayerTheme, ThemeOverrides, ThemeInput, DynamicTheme, CallableTheme } from './theme';
 
 // Native CIP-0103 adapter (for advanced usage)
 export { NativeCIP0103Adapter, createNativeAdapter, createSyntheticWalletInfo } from './native-cip0103-adapter';

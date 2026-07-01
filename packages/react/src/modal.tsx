@@ -730,14 +730,18 @@ export function WalletModal({
   // ─── Styles ──────────────────────────────────────────────────────────
 
   const overlayStyle: React.CSSProperties = {
+    // The backdrop blur target comes from the theme (theme.overlayBlur) via this CSS
+    // variable, so it drives BOTH the static value and the entrance/exit blur
+    // animations below (which ramp to var(--pl-overlay-blur)). Default 5px = today's look.
+    ['--pl-overlay-blur' as string]: theme.overlayBlur ?? '5px',
     position: 'fixed',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
     backgroundColor: theme.colors.overlay,
-    backdropFilter: 'blur(5px)',
-    WebkitBackdropFilter: 'blur(5px)',
+    backdropFilter: 'blur(var(--pl-overlay-blur, 5px))',
+    WebkitBackdropFilter: 'blur(var(--pl-overlay-blur, 5px))',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2013,10 +2017,10 @@ export function WalletModal({
         /* Backdrop: ramp the dim + blur in (softer open) and back out on close. */
         @keyframes pl-backdrop-enter {
           from { opacity: 0; backdrop-filter: blur(0); -webkit-backdrop-filter: blur(0); }
-          to { opacity: 1; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+          to { opacity: 1; backdrop-filter: blur(var(--pl-overlay-blur, 5px)); -webkit-backdrop-filter: blur(var(--pl-overlay-blur, 5px)); }
         }
         @keyframes pl-backdrop-exit {
-          from { opacity: 1; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); }
+          from { opacity: 1; backdrop-filter: blur(var(--pl-overlay-blur, 5px)); -webkit-backdrop-filter: blur(var(--pl-overlay-blur, 5px)); }
           to { opacity: 0; backdrop-filter: blur(0); -webkit-backdrop-filter: blur(0); }
         }
         /* Panel close mirrors the open (scale down + fade), so it feels symmetric. */

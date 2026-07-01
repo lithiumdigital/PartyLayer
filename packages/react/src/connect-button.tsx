@@ -131,7 +131,7 @@ export function ConnectButton({
   const isDark = theme.mode === 'dark';
   const brandYellow = theme.colors.primary;      // #FFCC00
   const brandHover = theme.colors.primaryHover;   // #E6B800
-  const textOnBrand = '#0B0F1A';
+  const textOnBrand = theme.colors.primaryForeground ?? '#0B0F1A';
 
   // ─── Disconnected State ───────────────────────────────────────────
 

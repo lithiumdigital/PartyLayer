@@ -8,6 +8,9 @@ import {
   useWallets,
   useSignMessage,
   usePartyLayer,
+  lightTheme,
+  darkTheme,
+  accentPresets,
 } from '@partylayer/react';
 import { useBreakpoint, responsive } from '../hooks/useBreakpoint';
 import { buildDemoAdapters } from '../../lib/canton-demo-adapter';
@@ -728,6 +731,7 @@ function CodeBlock() {
 export default function KitDemoPage() {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>('light');
+  const [accent, setAccent] = useState<'default' | 'blue' | 'green' | 'purple' | 'orange' | 'pink' | 'red'>('default');
   const [systemDark, setSystemDark] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -745,6 +749,27 @@ export default function KitDemoPage() {
   const bp = useBreakpoint();
   const isDark = theme === 'dark' || (theme === 'auto' && systemDark);
   const c = isDark ? darkTokens : lightTokens;
+
+  // Build the theme passed to PartyLayerKit from the light/dark choice + the accent.
+  // 'default' = no override (base look). For 'auto' we pass the dynamic
+  // { lightMode, darkMode } form so it follows the OS preference AND stays accented.
+  const accentOverride = accent === 'default' ? undefined : accentPresets[accent];
+  const kitTheme =
+    theme === 'auto'
+      ? { lightMode: lightTheme(accentOverride), darkMode: darkTheme(accentOverride) }
+      : theme === 'dark'
+        ? darkTheme(accentOverride)
+        : lightTheme(accentOverride);
+
+  const ACCENT_SWATCHES = [
+    { key: 'default', color: '#FFCC00', label: 'Default' },
+    { key: 'blue', color: '#3B82F6', label: 'Blue' },
+    { key: 'green', color: '#10B981', label: 'Green' },
+    { key: 'purple', color: '#7B3FE4', label: 'Purple' },
+    { key: 'orange', color: '#F97316', label: 'Orange' },
+    { key: 'pink', color: '#EC4899', label: 'Pink' },
+    { key: 'red', color: '#EF4444', label: 'Red' },
+  ] as const;
 
   if (!mounted) return (
     <div style={{
@@ -771,7 +796,7 @@ export default function KitDemoPage() {
         fontFamily: font,
         transition: 'background-color 200ms, color 200ms',
       }}>
-        <PartyLayerKit network="devnet" appName="PartyLayer Kit Demo" theme={theme} walletIcons={WALLET_LOGOS} walletOrder={CANONICAL_WALLET_ORDER} adapters={buildDemoAdapters()} registryUrl="/registry">
+        <PartyLayerKit network="devnet" appName="PartyLayer Kit Demo" theme={kitTheme} walletIcons={WALLET_LOGOS} walletOrder={CANONICAL_WALLET_ORDER} adapters={buildDemoAdapters()} registryUrl="/registry">
           <div style={{ maxWidth: '880px', margin: '0 auto', padding: '0 24px' }}>
 
             {/* Navbar */}
@@ -827,6 +852,42 @@ export default function KitDemoPage() {
                 <ConnectButton />
               </div>
             </nav>
+
+            {/* Theming showcase: pick an accent, then open Connect to see the button,
+                modal, and connecting glow all retint live (RainbowKit-style theming). */}
+            <div style={{
+              display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px',
+              padding: '14px 16px', marginTop: '20px',
+              borderRadius: '12px', border: `1px solid ${c.border}`, backgroundColor: c.muted,
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: c.fg }}>Accent</span>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {ACCENT_SWATCHES.map((sw) => {
+                  const selected = accent === sw.key;
+                  return (
+                    <button
+                      key={sw.key}
+                      onClick={() => setAccent(sw.key)}
+                      title={sw.label}
+                      aria-label={sw.label}
+                      style={{
+                        width: '26px', height: '26px', borderRadius: '50%',
+                        background: sw.color, cursor: 'pointer',
+                        border: selected ? `2px solid ${c.fg}` : `2px solid transparent`,
+                        boxShadow: selected ? `0 0 0 2px ${c.bg}, 0 0 0 4px ${sw.color}55` : 'none',
+                        transition: 'transform 120ms, box-shadow 120ms',
+                        transform: selected ? 'scale(1.08)' : 'scale(1)',
+                      }}
+                    />
+                  );
+                })}
+              </div>
+              <span style={{ fontSize: '12px', color: c.slate500, marginLeft: 'auto' }}>
+                {accent === 'default'
+                  ? 'theme={darkTheme}'
+                  : `theme={darkTheme({ ...accentPresets.${accent} })}`}
+              </span>
+            </div>
 
             {/* Hero Section */}
             <section style={{ padding: responsive(bp, '32px 0 28px', '40px 0 36px', '48px 0 40px') }}>
