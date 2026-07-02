@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import Script from 'next/script';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -133,12 +132,18 @@ export default function RootLayout({
           namespace. Production visitors see ONLY their installed
           extensions (or none, with proper Install CTAs). Verified in
           packages/react/src/native-readiness.test.ts (scenario K).
+
+          A PLAIN synchronous script tag on purpose (not next/script
+          beforeInteractive): in App Router dev mode, beforeInteractive is
+          queued via self.__next_s and executed after hydration starts, so
+          window.canton.demoWallet raced React. Discovery/detect could run
+          before the fixture existed, making the demo wallet report "not
+          found" and the discovered-count flicker. A sync tag executes
+          during HTML parse, strictly before hydration, like a real
+          extension content script.
         */}
         {process.env.NODE_ENV !== 'production' && (
-          <Script
-            src="/mock-cip0103-wallet.js"
-            strategy="beforeInteractive"
-          />
+          <script src="/mock-cip0103-wallet.js" />
         )}
         {children}
       </body>

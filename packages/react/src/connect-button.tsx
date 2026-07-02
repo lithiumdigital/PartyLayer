@@ -137,6 +137,23 @@ function ChevronIcon({ size = 12, color = 'currentColor' }: { size?: number; col
   );
 }
 
+function CopyIcon({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function CheckSmallIcon({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function ConnectButton({
@@ -155,7 +172,14 @@ export function ConnectButton({
 
   const [modalOpen, setModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear the copied-feedback timer on unmount.
+  useEffect(() => () => {
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -177,6 +201,18 @@ export function ConnectButton({
       // useDisconnect stores error state internally
     }
   }, [disconnect]);
+
+  // Copy the FULL party id (not the truncated display) with brief feedback.
+  const handleCopy = useCallback(async (partyId: string) => {
+    try {
+      await navigator.clipboard.writeText(partyId);
+      setCopied(true);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard unavailable (permissions/insecure context): fail silently.
+    }
+  }, []);
 
   // ─── Connected Label ──────────────────────────────────────────────
 
@@ -459,6 +495,38 @@ export function ConnectButton({
               </div>
             </div>
           </div>
+
+          {/* Copy address (the FULL party id; brief "Copied" feedback) */}
+          <button
+            onClick={() => handleCopy(connectedPartyId)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              width: '100%',
+              padding: '12px 16px',
+              border: 'none',
+              backgroundColor: 'transparent',
+              color: copied ? theme.colors.success : theme.colors.text,
+              cursor: 'pointer',
+              textAlign: 'left',
+              fontSize: '13px',
+              fontWeight: 500,
+              fontFamily: theme.fontFamily,
+              transition: 'background-color 150ms, color 150ms',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = theme.colors.surface;
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+            }}
+          >
+            {copied
+              ? <CheckSmallIcon size={14} color={theme.colors.success} />
+              : <CopyIcon size={14} color={theme.colors.textSecondary} />}
+            {copied ? 'Copied' : 'Copy address'}
+          </button>
 
           {/* Disconnect Button */}
           <button
