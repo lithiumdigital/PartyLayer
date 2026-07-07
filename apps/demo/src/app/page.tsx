@@ -565,7 +565,9 @@ function Nav({ onConnect }: { onConnect: () => void }) {
       borderBottom: `1px solid ${t.border}`,
     }}>
       <nav style={{
-        maxWidth: 1152, margin: '0 auto', padding: '0 24px',
+        maxWidth: 1152, margin: '0 auto',
+        // Tighter side padding on mobile so the Connect button never clips the edge.
+        padding: bp === 'mobile' ? '0 16px' : '0 24px',
         height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         fontFamily: t.font,
       }}>

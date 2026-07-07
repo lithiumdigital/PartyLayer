@@ -10,7 +10,7 @@
  * and polished across light/dark themes.
  */
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useClientSession, useConnect, useDisconnect } from './hooks';
 import { useTheme } from './theme';
 import { WalletModal } from './modal';
@@ -22,6 +22,12 @@ export interface ConnectButtonProps {
   label?: string;
   /** What to show when connected: partyId address, wallet name, or custom */
   connectedLabel?: 'address' | 'wallet' | 'custom';
+  /**
+   * What the connected button shows (RainbowKit-style): 'full' = avatar + id
+   * (default), 'avatar' = just the avatar (compact), 'address' = just the id
+   * (no avatar). The dropdown always shows the avatar for identity.
+   */
+  accountStatus?: 'avatar' | 'address' | 'full';
   /** Custom formatter for connected display (requires connectedLabel='custom') */
   formatAddress?: (partyId: string) => string;
   /** Additional CSS class name */
@@ -40,6 +46,66 @@ export interface ConnectButtonProps {
 export function truncatePartyId(id: string, chars = 6): string {
   if (id.length <= chars * 2 + 3) return id;
   return `${id.slice(0, chars)}...${id.slice(-chars)}`;
+}
+
+// ─── Deterministic avatar ──────────────────────────────────────────────────────
+
+/** FNV-1a hash of a string; stable across runs (deterministic avatar seed). */
+function hashPartyId(id: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/**
+ * A deterministic two-color gradient derived purely from the party id. The same
+ * id always yields the same gradient (Canton has no ENS, so we generate from the
+ * id, like RainbowKit's fallback avatar). Mid lightness so it reads on light and
+ * dark. Identity-only: it does NOT tint with the theme accent, so each party is
+ * visually distinct and consistent everywhere it appears.
+ */
+function partyGradient(id: string): string {
+  const h = hashPartyId(id);
+  const hue1 = h % 360;
+  const hue2 = (hue1 + 70 + (h % 130)) % 360;
+  const angle = (h >>> 3) % 360;
+  return `linear-gradient(${angle}deg, hsl(${hue1} 70% 57%), hsl(${hue2} 68% 47%))`;
+}
+
+export interface PartyAvatarProps {
+  /** The party id the avatar is generated from. */
+  id: string;
+  /** Diameter in px (default 20). */
+  size?: number;
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+/**
+ * A small deterministic identity avatar for a Canton party: a clean gradient
+ * derived from the party id. Reused in the ConnectButton and its dropdown so the
+ * identity reads consistently. Purely presentational.
+ */
+export function PartyAvatar({ id, size = 20, className, style }: PartyAvatarProps) {
+  const background = useMemo(() => partyGradient(id), [id]);
+  return (
+    <span
+      className={className}
+      aria-hidden="true"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        background,
+        display: 'inline-block',
+        flexShrink: 0,
+        ...style,
+      }}
+    />
+  );
 }
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
@@ -71,11 +137,29 @@ function ChevronIcon({ size = 12, color = 'currentColor' }: { size?: number; col
   );
 }
 
+function CopyIcon({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function CheckSmallIcon({ size = 14, color = 'currentColor' }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function ConnectButton({
   label = 'Connect Wallet',
   connectedLabel = 'address',
+  accountStatus = 'full',
   formatAddress,
   className,
   style,
@@ -88,7 +172,14 @@ export function ConnectButton({
 
   const [modalOpen, setModalOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear the copied-feedback timer on unmount.
+  useEffect(() => () => {
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -111,6 +202,18 @@ export function ConnectButton({
     }
   }, [disconnect]);
 
+  // Copy the FULL party id (not the truncated display) with brief feedback.
+  const handleCopy = useCallback(async (partyId: string) => {
+    try {
+      await navigator.clipboard.writeText(partyId);
+      setCopied(true);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Clipboard unavailable (permissions/insecure context): fail silently.
+    }
+  }, []);
+
   // ─── Connected Label ──────────────────────────────────────────────
 
   const getConnectedText = (): string => {
@@ -131,7 +234,7 @@ export function ConnectButton({
   const isDark = theme.mode === 'dark';
   const brandYellow = theme.colors.primary;      // #FFCC00
   const brandHover = theme.colors.primaryHover;   // #E6B800
-  const textOnBrand = '#0B0F1A';
+  const textOnBrand = theme.colors.primaryForeground ?? '#0B0F1A';
 
   // ─── Disconnected State ───────────────────────────────────────────
 
@@ -278,23 +381,42 @@ export function ConnectButton({
           btn.style.boxShadow = '0 1px 2px rgba(15, 23, 42, 0.05)';
         }}
       >
-        {/* Green status dot */}
-        <span style={{
-          width: '8px',
-          height: '8px',
-          borderRadius: '50%',
-          backgroundColor: theme.colors.success,
-          flexShrink: 0,
-          boxShadow: `0 0 0 2px ${theme.colors.surface}`,
-        }} />
+        {/* Identity: the deterministic avatar (with a small green presence dot),
+            or, in address-only mode, the classic green status dot. */}
+        {accountStatus === 'address' ? (
+          <span style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: theme.colors.success,
+            flexShrink: 0,
+            boxShadow: `0 0 0 2px ${theme.colors.surface}`,
+          }} />
+        ) : (
+          <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+            <PartyAvatar id={connectedPartyId} size={20} />
+            <span style={{
+              position: 'absolute',
+              bottom: '-1px',
+              right: '-1px',
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: theme.colors.success,
+              border: `2px solid ${theme.colors.surface}`,
+            }} />
+          </span>
+        )}
 
-        <span style={{
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-          fontSize: '13px',
-          color: theme.colors.text,
-        }}>
-          {getConnectedText()}
-        </span>
+        {accountStatus !== 'avatar' && (
+          <span style={{
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+            fontSize: '13px',
+            color: theme.colors.text,
+          }}>
+            {getConnectedText()}
+          </span>
+        )}
 
         {showDisconnect && (
           <ChevronIcon
@@ -323,50 +445,88 @@ export function ConnectButton({
             animation: 'partylayer-dropdown 150ms cubic-bezier(0.2, 0.8, 0.2, 1)',
           }}
         >
-          {/* Session Info */}
+          {/* Session Info: the same identity avatar (larger) next to the details. */}
           <div style={{
             padding: '14px 16px',
             borderBottom: `1px solid ${theme.colors.border}`,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
           }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              marginBottom: '8px',
-            }}>
-              <span style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                backgroundColor: theme.colors.success,
-              }} />
-              <span style={{
-                fontSize: '12px',
-                fontWeight: 600,
-                color: theme.colors.success,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
+            <PartyAvatar id={connectedPartyId} size={38} />
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                marginBottom: '5px',
               }}>
-                Connected
-              </span>
-            </div>
-            <div style={{
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-              fontSize: '12px',
-              color: theme.colors.text,
-              wordBreak: 'break-all',
-              lineHeight: 1.4,
-            }}>
-              {truncatePartyId(connectedPartyId, 10)}
-            </div>
-            <div style={{
-              marginTop: '6px',
-              fontSize: '12px',
-              color: theme.colors.textSecondary,
-            }}>
-              {connectedWalletId}
+                <span style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: theme.colors.success,
+                }} />
+                <span style={{
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  color: theme.colors.success,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}>
+                  Connected
+                </span>
+              </div>
+              <div style={{
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                fontSize: '12px',
+                color: theme.colors.text,
+                wordBreak: 'break-all',
+                lineHeight: 1.4,
+              }}>
+                {truncatePartyId(connectedPartyId, 10)}
+              </div>
+              <div style={{
+                marginTop: '4px',
+                fontSize: '12px',
+                color: theme.colors.textSecondary,
+              }}>
+                {connectedWalletId}
+              </div>
             </div>
           </div>
+
+          {/* Copy address (the FULL party id; brief "Copied" feedback) */}
+          <button
+            onClick={() => handleCopy(connectedPartyId)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              width: '100%',
+              padding: '12px 16px',
+              border: 'none',
+              backgroundColor: 'transparent',
+              color: copied ? theme.colors.success : theme.colors.text,
+              cursor: 'pointer',
+              textAlign: 'left',
+              fontSize: '13px',
+              fontWeight: 500,
+              fontFamily: theme.fontFamily,
+              transition: 'background-color 150ms, color 150ms',
+            }}
+            onMouseEnter={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = theme.colors.surface;
+            }}
+            onMouseLeave={(e) => {
+              (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent';
+            }}
+          >
+            {copied
+              ? <CheckSmallIcon size={14} color={theme.colors.success} />
+              : <CopyIcon size={14} color={theme.colors.textSecondary} />}
+            {copied ? 'Copied' : 'Copy address'}
+          </button>
 
           {/* Disconnect Button */}
           <button

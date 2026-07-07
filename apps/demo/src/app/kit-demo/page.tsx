@@ -8,7 +8,12 @@ import {
   useWallets,
   useSignMessage,
   usePartyLayer,
+  lightTheme,
+  darkTheme,
+  accentPresets,
+  PartyAvatar,
 } from '@partylayer/react';
+import { isCip0103Native } from '@partylayer/sdk';
 import { useBreakpoint, responsive } from '../hooks/useBreakpoint';
 import { buildDemoAdapters } from '../../lib/canton-demo-adapter';
 import { sortByCanonicalOrder, CANONICAL_WALLET_ORDER } from '../../lib/wallet-order';
@@ -117,12 +122,17 @@ function DemoContent() {
   const client = usePartyLayer();
   const [signResult, setSignResult] = useState<string | null>(null);
 
+  // Same definition as the modal's "CIP-0103 Native" section (the registry
+  // cip0103.native flag via isCip0103Native). The previous filter counted the
+  // pre-registry runtime-promotion marker (metadata.source === 'native-cip0103'),
+  // which no longer exists, so this panel showed 0 while the modal showed the
+  // registry count. One predicate, one number.
   const nativeWallets = sortByCanonicalOrder(
-    wallets.filter((w) => w.metadata?.source === 'native-cip0103'),
+    wallets.filter((w) => isCip0103Native(w)),
     (w) => w.walletId
   );
   const registryWallets = sortByCanonicalOrder(
-    wallets.filter((w) => !w.metadata?.source),
+    wallets.filter((w) => !isCip0103Native(w)),
     (w) => w.walletId
   );
 
@@ -728,6 +738,9 @@ function CodeBlock() {
 export default function KitDemoPage() {
   const [mounted, setMounted] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>('light');
+  const [accent, setAccent] = useState<'default' | 'blue' | 'green' | 'purple' | 'orange' | 'pink' | 'red'>('default');
+  const [showAttr, setShowAttr] = useState(true);
+  const [accountStatus, setAccountStatus] = useState<'full' | 'avatar' | 'address'>('full');
   const [systemDark, setSystemDark] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -745,6 +758,27 @@ export default function KitDemoPage() {
   const bp = useBreakpoint();
   const isDark = theme === 'dark' || (theme === 'auto' && systemDark);
   const c = isDark ? darkTokens : lightTokens;
+
+  // Build the theme passed to PartyLayerKit from the light/dark choice + the accent.
+  // 'default' = no override (base look). For 'auto' we pass the dynamic
+  // { lightMode, darkMode } form so it follows the OS preference AND stays accented.
+  const accentOverride = accent === 'default' ? undefined : accentPresets[accent];
+  const kitTheme =
+    theme === 'auto'
+      ? { lightMode: lightTheme(accentOverride), darkMode: darkTheme(accentOverride) }
+      : theme === 'dark'
+        ? darkTheme(accentOverride)
+        : lightTheme(accentOverride);
+
+  const ACCENT_SWATCHES = [
+    { key: 'default', color: '#FFCC00', label: 'Default' },
+    { key: 'blue', color: '#3B82F6', label: 'Blue' },
+    { key: 'green', color: '#10B981', label: 'Green' },
+    { key: 'purple', color: '#7B3FE4', label: 'Purple' },
+    { key: 'orange', color: '#F97316', label: 'Orange' },
+    { key: 'pink', color: '#EC4899', label: 'Pink' },
+    { key: 'red', color: '#EF4444', label: 'Red' },
+  ] as const;
 
   if (!mounted) return (
     <div style={{
@@ -771,7 +805,7 @@ export default function KitDemoPage() {
         fontFamily: font,
         transition: 'background-color 200ms, color 200ms',
       }}>
-        <PartyLayerKit network="devnet" appName="PartyLayer Kit Demo" theme={theme} walletIcons={WALLET_LOGOS} walletOrder={CANONICAL_WALLET_ORDER} adapters={buildDemoAdapters()} registryUrl="/registry">
+        <PartyLayerKit network="devnet" appName="PartyLayer Kit Demo" theme={kitTheme} showAttribution={showAttr} walletIcons={WALLET_LOGOS} walletOrder={CANONICAL_WALLET_ORDER} adapters={buildDemoAdapters()} registryUrl="/registry">
           <div style={{ maxWidth: '880px', margin: '0 auto', padding: '0 24px' }}>
 
             {/* Navbar */}
@@ -824,9 +858,110 @@ export default function KitDemoPage() {
                   ))}
                 </div>
 
-                <ConnectButton />
+                <ConnectButton accountStatus={accountStatus} />
               </div>
             </nav>
+
+            {/* Theming showcase: pick an accent, then open Connect to see the button,
+                modal, and connecting glow all retint live (RainbowKit-style theming). */}
+            <div style={{
+              display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px',
+              padding: '14px 16px', marginTop: '20px',
+              borderRadius: '12px', border: `1px solid ${c.border}`, backgroundColor: c.muted,
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: c.fg }}>Accent</span>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {ACCENT_SWATCHES.map((sw) => {
+                  const selected = accent === sw.key;
+                  return (
+                    <button
+                      key={sw.key}
+                      onClick={() => setAccent(sw.key)}
+                      title={sw.label}
+                      aria-label={sw.label}
+                      style={{
+                        width: '26px', height: '26px', borderRadius: '50%',
+                        background: sw.color, cursor: 'pointer',
+                        border: selected ? `2px solid ${c.fg}` : `2px solid transparent`,
+                        boxShadow: selected ? `0 0 0 2px ${c.bg}, 0 0 0 4px ${sw.color}55` : 'none',
+                        transition: 'transform 120ms, box-shadow 120ms',
+                        transform: selected ? 'scale(1.08)' : 'scale(1)',
+                      }}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Powered-by attribution toggle (footer of the connect modal) */}
+              <button
+                onClick={() => setShowAttr((v) => !v)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '8px',
+                  padding: '6px 12px', borderRadius: '8px', cursor: 'pointer',
+                  border: `1px solid ${c.border}`, background: c.bg, color: c.fg,
+                  fontSize: '12px', fontWeight: 500, fontFamily: font,
+                }}
+              >
+                <span style={{
+                  width: '30px', height: '18px', borderRadius: '9px', position: 'relative',
+                  background: showAttr ? '#10B981' : c.border, transition: 'background 150ms',
+                }}>
+                  <span style={{
+                    position: 'absolute', top: '2px', left: showAttr ? '14px' : '2px',
+                    width: '14px', height: '14px', borderRadius: '50%', background: '#fff',
+                    transition: 'left 150ms', boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                  }} />
+                </span>
+                showAttribution
+              </button>
+
+              <span style={{ fontSize: '12px', color: c.slate500, marginLeft: 'auto' }}>
+                {accent === 'default'
+                  ? `<PartyLayerKit showAttribution={${showAttr}}>`
+                  : `theme={darkTheme({ ...accentPresets.${accent} })}`}
+              </span>
+            </div>
+
+            {/* Connected-button avatar showcase: accountStatus control + a preview of
+                the deterministic avatar across sample party ids. Connect a wallet
+                above to see the real connected button (with the avatar + dropdown). */}
+            <div style={{
+              display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '12px',
+              padding: '14px 16px', marginTop: '10px',
+              borderRadius: '12px', border: `1px solid ${c.border}`, backgroundColor: c.muted,
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: c.fg }}>accountStatus</span>
+              <div style={{ display: 'inline-flex', borderRadius: '8px', overflow: 'hidden', border: `1px solid ${c.border}` }}>
+                {(['full', 'avatar', 'address'] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setAccountStatus(s)}
+                    style={{
+                      padding: '6px 12px', fontSize: '12px', fontWeight: 500, cursor: 'pointer',
+                      border: 'none', fontFamily: font,
+                      background: accountStatus === s ? c.brand500 : c.bg,
+                      color: accountStatus === s ? '#0B0F1A' : c.fg,
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+
+              <span style={{ fontSize: '12px', color: c.slate500 }}>deterministic avatars:</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {['party-alice::1220ab', 'party-bob::99f7c2', 'party-carol::5e3d10', 'party-dave::77aa01'].map((id) => (
+                  <div key={id} title={id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                    <PartyAvatar id={id} size={28} />
+                    <span style={{ fontSize: '10px', color: c.slate500, fontFamily: 'ui-monospace, monospace' }}>{id.split('::')[0].replace('party-', '')}</span>
+                  </div>
+                ))}
+              </div>
+
+              <span style={{ fontSize: '12px', color: c.slate500, marginLeft: 'auto' }}>
+                Connect above to see the connected button
+              </span>
+            </div>
 
             {/* Hero Section */}
             <section style={{ padding: responsive(bp, '32px 0 28px', '40px 0 36px', '48px 0 40px') }}>
@@ -868,7 +1003,9 @@ export default function KitDemoPage() {
                     left: 0,
                     width: '100%',
                     height: '12px',
-                    backgroundColor: c.brand100,
+                    // brand100 on dark (#2A2510) reads muddy behind light text;
+                    // a translucent brand yellow reads as a proper highlight.
+                    backgroundColor: isDark ? 'rgba(255, 204, 0, 0.30)' : c.brand100,
                     zIndex: 0,
                     transform: 'skewX(-3deg)',
                   }} />
