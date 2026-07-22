@@ -19,6 +19,14 @@ export type { ConnectButtonProps, PartyAvatarProps } from './connect-button';
 export { CostPreview } from './cost-preview';
 export type { CostPreviewProps } from './cost-preview';
 
+// TransactionToast: presentational transaction-status toast (dApp passes mutation state as props)
+export { TransactionToast } from './transaction-toast';
+export type { TransactionToastProps, TransactionToastStatus } from './transaction-toast';
+
+// SynchronizerSwitcher: presentational synchronizer picker (dApp handles onSwitch)
+export { SynchronizerSwitcher } from './synchronizer-switcher';
+export type { SynchronizerSwitcherProps, SynchronizerOption } from './synchronizer-switcher';
+
 // Theme system
 export { ThemeProvider, useTheme, lightTheme, darkTheme, createTheme, accentPresets } from './theme';
 export type { PartyLayerTheme, ThemeOverrides, ThemeInput, DynamicTheme, CallableTheme } from './theme';
