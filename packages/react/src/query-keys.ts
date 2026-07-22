@@ -83,6 +83,14 @@ export const partyLayerKeys = {
    * mutation key; the variables/result are the dApp's, not folded into the key.
    */
   exerciseChoice: () => [...partyLayerKeys.all, 'exerciseChoice'] as const,
+
+  /**
+   * Mutation: submit a CIP-0056 transfer (`TransferFactory_Transfer`), a typed
+   * sibling of `exerciseChoice`. The dApp owns the registry-specific submit
+   * transport (Model 2), so this is just a stable mutation key; the transfer/result
+   * are the dApp's, not folded into the key.
+   */
+  transferInstruction: () => [...partyLayerKeys.all, 'transferInstruction'] as const,
 } as const;
 
 export type PartyLayerKeys = typeof partyLayerKeys;
