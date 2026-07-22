@@ -143,6 +143,26 @@ export type {
   UseTransferInstructionActionReturnType,
 } from './transfer-instruction-action';
 
+// CIP-0056 typed allocation create: a typed specialization of useChoice for the
+// AllocationInstructionV1 AllocationFactory_Allocate flow (the allocation sibling
+// of useTransferInstruction).
+export { useAllocationInstruction } from './allocation-instruction';
+export type {
+  AllocationInstructionRequest,
+  UseAllocationInstructionParameters,
+  UseAllocationInstructionReturnType,
+} from './allocation-instruction';
+
+// CIP-0056 typed allocation action: execute transfer, cancel, or withdraw on a
+// funded Allocation (the allocation sibling of useTransferInstructionAction).
+export { useAllocationAction } from './allocation-action';
+export type {
+  AllocationActionKind,
+  AllocationActionRequest,
+  UseAllocationActionParameters,
+  UseAllocationActionReturnType,
+} from './allocation-action';
+
 // Optimistic update + automatic rollback helper for the mutation hooks.
 export { optimisticMutationOptions } from './use-optimistic';
 export type {
