@@ -109,6 +109,22 @@ export const partyLayerKeys = {
    * key; the request/result are the dApp's, not folded into the key.
    */
   transferInstructionAction: () => [...partyLayerKeys.all, 'transferInstructionAction'] as const,
+
+  /**
+   * Mutation: create a CIP-0056 allocation via the registry's factory
+   * (`AllocationFactory_Allocate`), a typed sibling of `transferInstruction`. The
+   * dApp owns the registry-specific submit transport (Model 2), so this is just a
+   * stable mutation key; the request/result are the dApp's, not folded into the key.
+   */
+  allocationInstruction: () => [...partyLayerKeys.all, 'allocationInstruction'] as const,
+
+  /**
+   * Mutation: act on a funded CIP-0056 allocation (execute transfer, cancel, or
+   * withdraw), a typed sibling of `transferInstructionAction`. The dApp owns the
+   * registry-specific submit transport (Model 2), so this is just a stable mutation
+   * key; the request/result are the dApp's, not folded into the key.
+   */
+  allocationAction: () => [...partyLayerKeys.all, 'allocationAction'] as const,
 } as const;
 
 export type PartyLayerKeys = typeof partyLayerKeys;
