@@ -108,6 +108,17 @@ export type {
   UseChoiceReturnType,
 } from './use-choice';
 
+// CIP-0056 typed transfer submit: a typed specialization of useChoice for the
+// TransferInstructionV1 TransferFactory_Transfer flow (the write-side sibling of
+// useTokenHoldings). Transfer initiation submit only.
+export { useTransferInstruction } from './transfer-instruction';
+export type {
+  TokenTransfer,
+  TransferInstructionStatus,
+  UseTransferInstructionParameters,
+  UseTransferInstructionReturnType,
+} from './transfer-instruction';
+
 // Optimistic update + automatic rollback helper for the mutation hooks.
 export { optimisticMutationOptions } from './use-optimistic';
 export type {
