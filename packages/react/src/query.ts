@@ -133,6 +133,16 @@ export type {
   UseTransferInstructionReturnType,
 } from './transfer-instruction';
 
+// CIP-0056 typed transfer completion: the accept/reject/withdraw sibling of
+// useTransferInstruction, over the standard TransferInstruction choices.
+export { useTransferInstructionAction } from './transfer-instruction-action';
+export type {
+  TransferInstructionActionKind,
+  TransferInstructionActionRequest,
+  UseTransferInstructionActionParameters,
+  UseTransferInstructionActionReturnType,
+} from './transfer-instruction-action';
+
 // Optimistic update + automatic rollback helper for the mutation hooks.
 export { optimisticMutationOptions } from './use-optimistic';
 export type {
