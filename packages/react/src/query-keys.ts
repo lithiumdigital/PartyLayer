@@ -101,6 +101,14 @@ export const partyLayerKeys = {
    * are the dApp's, not folded into the key.
    */
   transferInstruction: () => [...partyLayerKeys.all, 'transferInstruction'] as const,
+
+  /**
+   * Mutation: complete a pending CIP-0056 transfer instruction (accept, reject, or
+   * withdraw), a typed sibling of `transferInstruction`. The dApp owns the
+   * registry-specific submit transport (Model 2), so this is just a stable mutation
+   * key; the request/result are the dApp's, not folded into the key.
+   */
+  transferInstructionAction: () => [...partyLayerKeys.all, 'transferInstructionAction'] as const,
 } as const;
 
 export type PartyLayerKeys = typeof partyLayerKeys;
