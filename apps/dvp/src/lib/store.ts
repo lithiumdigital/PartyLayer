@@ -18,6 +18,7 @@ import type {
   TokenAllocationRequestRef,
   TokenTransferLeg,
 } from '@partylayer/react/query';
+import { allocationMatchesRequestLeg } from '@partylayer/react/query';
 import type { DemoPartyKey } from './types';
 import {
   PARTIES,
@@ -28,7 +29,6 @@ import {
   DEFAULT_SETTLE_BEFORE,
 } from './fixtures';
 import { addAmount, subAmount, cmpAmount } from './format';
-import { legMatches } from './match';
 
 interface StoreState {
   holdings: Record<DemoPartyKey, TokenHoldingRef[]>;
@@ -168,7 +168,7 @@ export const demoStore = {
     const req = requestByCid(requestCid);
     return Object.keys(req.request.transferLegs).filter((legId) => {
       const alloc = findAllocation(requestCid, legId);
-      return !!alloc && legMatches(alloc.allocation.allocation.transferLeg, req.request.transferLegs[legId]);
+      return !!alloc && allocationMatchesRequestLeg(alloc.allocation, req.request, legId);
     });
   },
 
@@ -282,7 +282,7 @@ export const demoStore = {
     for (const legId of legIds) {
       const leg = req.request.transferLegs[legId];
       const alloc = findAllocation(requestCid, legId);
-      if (alloc && legMatches(alloc.allocation.allocation.transferLeg, leg)) {
+      if (alloc && allocationMatchesRequestLeg(alloc.allocation, req.request, legId)) {
         matched.push({ legId, alloc, leg });
       } else {
         missing.push(legId);
