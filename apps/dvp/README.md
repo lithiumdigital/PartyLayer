@@ -120,19 +120,21 @@ fetchers. The hooks and the UI stay exactly as they are.
   `Allocation_ExecuteTransfer` for every leg in one transaction. The official Splice
   token-standard trading-app example is the canonical reference for this flow.
 
-## API findings
+## API findings (now resolved)
 
-Building this vertical surfaced one composition friction, reported for the release
-review:
+Building this vertical surfaced one composition friction, which has since been
+RESOLVED in `@partylayer/react` (pre-release, nothing published), and this app was
+migrated onto the fix:
 
-1. **No spec comparator for allocation-versus-request matching.** A settlement venue
+1. **Spec comparator for allocation-versus-request matching.** A settlement venue
    must decide whether a given `TokenAllocation` satisfies a given leg of a
    `TokenAllocationRequest` (same settlement ref, leg id, sender, receiver, amount,
-   instrument). Every venue needs exactly this, but the package exports no comparator,
-   so the app writes its own (`src/lib/match.ts`, shared by the store and the venue
-   view). A package-owned `matchesLeg(allocation, request, legId)` (and a
-   decimal-aware amount equality, since amounts are strings) would remove per-app
-   comparators and the risk of subtly different equality rules across dApps.
+   instrument). The dangerous subtlety is decimal equality: amounts are
+   decimal-as-string, so a naive `===` wrongly rejects `"5"` versus `"5.00"`. The
+   package now owns the canonical comparators (`tokenDecimalEquals`,
+   `tokenTransferLegEquals`, `tokenSettlementInfoEquals`,
+   `allocationMatchesRequestLeg`), and `src/lib/match.ts` is a thin adapter over
+   `allocationMatchesRequestLeg` with no app-level amount comparator.
 
 Not exercised here (covered by the tokenization vertical): the transfer hooks
 (`useTransferInstruction`, `useTransferInstructions`, `useTransferInstructionAction`)

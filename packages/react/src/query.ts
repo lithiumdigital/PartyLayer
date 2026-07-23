@@ -118,6 +118,16 @@ export type {
   UseTokenAllocationsReturnType,
 } from './token-allocations';
 
+// Framework-free spec comparators for allocation-versus-request matching (the
+// settlement venue's expected-allocation check). Decimal-as-string equality never
+// converts to floats.
+export {
+  tokenDecimalEquals,
+  tokenTransferLegEquals,
+  tokenSettlementInfoEquals,
+  allocationMatchesRequestLeg,
+} from './token-matching';
+
 export { useChoice } from './use-choice';
 export type {
   UseChoiceParameters,
